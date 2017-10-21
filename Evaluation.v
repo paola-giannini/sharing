@@ -9,7 +9,8 @@
     We define: values, capture free substitution (renaming of bound variables),
     evaluation contexts with the operations of renaming (when we want a capture
     free  substitution in the hole of the context) and update.
-    Finally we define the evaluation. *)
+    Finally we define the evaluation. 
+**)
     
     
 Require Import List.
