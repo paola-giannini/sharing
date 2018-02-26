@@ -1,0 +1,11 @@
+-R . FJSH
+./AdditionalTactics.v
+./Atom.v
+./EqRF.v
+./EqRFE.v
+./Evaluation.v
+./FinVectorMisc.v
+./TypedLanguage.v
+./Metatheory.v
+./NatMisc.v
+./SharingRelation.v
