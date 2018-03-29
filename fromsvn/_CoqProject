@@ -1,0 +1,14 @@
+-R . FJSH
+./AdditionalTactics.v
+./Atom.v
+./DecidableEquivalences.v
+./EqRF.v
+./EqRFE.v
+./Evaluation.v
+./FJ_Definitions.v
+./FinVectorMisc.v
+./TypedLanguage.v
+./Metatheory.v
+./NatMisc.v
+./SharingRelation.v
+./GarbageElimination.v
