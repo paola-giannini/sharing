@@ -60,6 +60,14 @@ Proof.
       exact (IHn v p).
 Qed.
 
+Equations nthMapLemma' {A B: Type} {n : nat} (f : A -> B)
+      (w : Vector.t A n) (x : Fin.t n) :
+       nth (map f w) x = f (nth w x) :=
+nthMapLemma' f nil x                :=! x;
+nthMapLemma' f (cons _ ws') F1      := eq_refl;
+nthMapLemma' f (cons _ ws') (FS x') := nthMapLemma' f ws' x'.
+
+
 Lemma mapVectComposeIsCompose {m n o : nat}
            (v : Vector.t (Fin.t o) n)
            (w : Vector.t (Fin.t n) m) 
@@ -188,6 +196,37 @@ Proof.
   repeat rewrite invertFinInvolution in eq.
   exact eq.
 Defined.
+
+(* to use invertFin for pattern matching, we have to keep
+   the association ... *)
+Definition invFinViewType {n : nat} (x : (Fin.t n)) : Type :=
+    { y : Fin.t n | invertFin y = x }.
+
+Definition invFinView {n : nat} (x : (Fin.t n)) : invFinViewType x :=
+    exist _ (invertFin x) (invertFinInvolution x).
+
+Equations finFUOrFL {n : nat} (x : Fin.t (S n)) :
+      { y : Fin.t n | x = FU y } + { x = FL n } :=
+finFUOrFL  {n:=0}       F1  := (inright _);
+finFUOrFL  {n:=(S _)} x <= (invFinView x) => {
+                  | (exist F1 eq)   := 
+      (inright (eq_trans (eq_sym (invertFinInvolution x)) _));
+                  | (exist (FS x') eq) := 
+      (inleft 
+        (exist _ (invertFin x')
+               (eq_trans (eq_sym (invertFinInvolution x)) _)
+        )
+      )}.
+Next Obligation.
+  rewrite <- invertFinInvolution.
+  trivial.
+Defined.
+
+Next Obligation.
+  rewrite <- invertFinInvolution.
+  trivial.
+Defined.
+
 
 Equations shiftinLast' {n : nat} {A : Type} (a : A) (v : Vector.t A n) :
                     Vector.nth (shiftin a v) (FL n) = a :=
