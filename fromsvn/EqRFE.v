@@ -200,3 +200,108 @@ idRelRight1 {n:=(S _)} (ERPut t e') :=
                 (f_equal (ERPut t) (idRelRight1 e' (* e' • △ = e' *)))
              (* (e' ← t) *) )).
 
+(* erMap of "e1 • e2" is composition of erMaps *)
+
+Ltac erRewrites0 := 
+  try repeat  (rewrite erMapNewPrevious) ||
+              (rewrite erMapNewLast)     ||
+              (rewrite erMapPutPrevious) ||
+              (rewrite erMapPutLast)     || trivial.
+
+
+Obligation Tactic := program_simpl; erRewrites0.
+
+Equations erMapCompose {n m l : nat} (e1 : ER n m)
+      (e2 : ER m l) (x : Fin.t n) :
+      (e1 • e2) ↓ x = e2 ↓ (e1 ↓ x) :=
+erMapCompose {n:=0}     _ _ x :=! x;
+erMapCompose {n:=(S _)} e1 e2 x <= (finFUOrFL x) => {
+  erMapCompose {n:=(S _)} (ERNew e1')    (ERNew e2')    x (inleft (exist y eq)) 
+                                   <= erMapCompose e1' e2' y => { | IH := _};
+  erMapCompose {n:=(S _)} (ERNew e1')    (ERNew e2')    x (inright eq)          := _;
+  erMapCompose {n:=(S _)} (ERNew e1')    (ERPut t2 e2') x (inleft (exist y eq)) := _;
+  erMapCompose {n:=(S _)} (ERNew e1')    (ERPut t2 e2') x (inright eq)          := _;
+  erMapCompose {n:=(S _)} (ERPut t1 e1')  e2            x (inleft (exist y eq)) := _;
+  erMapCompose {n:=(S _)} (ERPut t1 e1')  e2            x (inright eq)          := _}.
+Next Obligation.
+  rewrite IH. trivial.
+Defined.
+
+Obligation Tactic := program_simpl.
+
+Lemma erComposeAssociative {n m l k : nat}
+      (e1 : ER n m) (e2 : ER m l) (e3 : ER l k) :
+      (e1 • e2) • e3 = e1 • e2 • e3.
+Proof.
+  funelim (e1 • e2).
+  - funelim (□ • e3). trivial.
+  - funelim ((e • e0 ←▪) • e3).
+    + repeat (rewrite composeER_equation_2).
+      rewrite H1. trivial.
+    + repeat (rewrite composeER_equation_3).
+      rewrite H1. trivial.
+  - repeat (rewrite composeER_equation_4).
+    rewrite composeER_equation_3.
+    rewrite H. trivial.
+  - repeat (rewrite composeER_equation_4).
+    rewrite H. rewrite erMapCompose. trivial.
+Defined.
+
+Definition erContains {n m l : nat} (f: ER n m) (e: ER n l) : Type :=
+           { d : ER m l | f • d = e }.
+
+Notation "f '⊑' e" := (erContains f e) (at level 50).
+                      (* \sqsubseteq *)
+
+(* needed ?
+Lemma erContainsUnique {n m l : nat} (f: ER n m) (e: ER n l)
+         (d1 d2 : f ⊑ e) : d1 = d2.
+Proof.
+  destruct d1 as [d1 eq1].
+  destruct d2 as [d2 eq2].
+...
+*)
+
+Definition erContainsReflexive {n m : nat} (e : ER n m) : e ⊑ e :=
+           (exist _ △  (idRelRight1 e)).
+
+Definition erContainsTransitive {n c1 c2 c3 : nat} 
+           (e1 : ER n c1) (e2 : ER n c2) (e3 : ER n c3) :
+           (e1 ⊑ e2) → (e2 ⊑ e3) → (e1 ⊑ e3).
+Proof.
+  intros [d1 eq1] [d2 eq2].
+  exists (d1 • d2).
+  rewrite <- erComposeAssociative.
+  rewrite eq1.
+  exact eq2.
+Defined.
+
+(* to formulate and prove antisymmetry, we need EqR *)
+
+Definition EqR (n : nat) : Type :=
+      { c : nat & ER n c }.
+
+Definition eqrContains {n : nat} (f e : EqR n) : Type :=
+      (projT2 f) ⊑ (projT2 e).
+
+Notation "e '⊆' f" := (eqrContains e f) (at level 50).
+
+(*
+Lemma erAntiSymmetric {n : nat}
+          (e1 e2 : EqR n) :
+          (e1 ⊆ e2) → (e2 ⊆ e1) → e1 = e2.
+Proof.
+  destruct e1 as [c1 e1].
+  destruct e2 as [c2 e2].
+  unfold "⊆". simpl.
+  intros [d1 eq1] [d2 eq2].
+  pose (erCLeN d1) as C2LeC1.
+  pose (erCLeN d2) as C1LeC2.
+  pose (leAntiSymmetric _ _ (conj C1LeC2 C2LeC1)) as eq.
+  ...?
+*)
+
+
+
+
+

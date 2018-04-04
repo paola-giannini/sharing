@@ -197,27 +197,21 @@ Proof.
   - inversion 1.
 Defined.
 
-Definition leAntiSymmetric (n m : nat) : n ≤ m ∧ m ≤ n ↔ n = m.
+Definition leAntiSymmetric (n m : nat) : n ≤ m ∧ m ≤ n → n = m.
 Proof.
-  split.
-  - generalize m.
-    induction n.
-    + intro k.
-      induction k. 
-      * trivial.
-      * intros [_ SLeZ]. inversion SLeZ.
-    + intro k. induction k.
-      * intros [SLeZ _]. inversion SLeZ.
-      * intros [SNLeSK SKLeSN].
-        assert (n ≤ k ∧ k ≤ n) as NLeKLeN.
-        { split.
-          - exact (leSN SNLeSK).
-          - exact (leSN SKLeSN). }
-        pose (IHn k NLeKLeN) as NEqK.
-        exact (f_equal S NEqK).
-  - intro NEqM. rewrite NEqM.
-    split;exact (le_n m).
+  generalize m.
+  induction n.
+  + intro k.
+    induction k. 
+    * trivial.
+    * intros [_ SLeZ]. inversion SLeZ.
+  + intro k. induction k.
+    * intros [SLeZ _]. inversion SLeZ.
+    * intros [SNLeSK SKLeSN].
+      assert (n ≤ k ∧ k ≤ n) as NLeKLeN.
+      { split.
+        - exact (leSN SNLeSK).
+        - exact (leSN SKLeSN). }
+      pose (IHn k NLeKLeN) as NEqK.
+      exact (f_equal S NEqK).
 Defined.
-
-
-

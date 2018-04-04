@@ -505,7 +505,9 @@ Defined.
 Lemma eqFLemma {m n : nat} (x : Fin.t (S m)) (y : Fin.t (S n)) :
       x ≈ y ↔ (to_nat' x = to_nat' y).
 Proof.
-  apply leAntiSymmetric.
+  unfold "≼". split.
+  - apply leAntiSymmetric.
+  - intro eq. split; rewrite eq; trivial.
 Defined. 
 
 Lemma ltFTricho {m n : nat} (x : Fin.t (S m)) (y : Fin.t (S n)) :
