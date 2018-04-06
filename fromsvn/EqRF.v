@@ -443,7 +443,7 @@ Proof.
 Defined.
 
 (* order relations on Fin.t *)
-
+(* (hopefully) better in FinVectorMisc
 Definition to_nat' : ∀ {n : nat}, Fin.t (S n) → nat.
 Proof.
   apply (Fin.rectS (λ _ y, nat)).
@@ -521,4 +521,4 @@ Proof.
   - left. right. exact GT.
   - right. exact LT.
 Defined.
-
+*)

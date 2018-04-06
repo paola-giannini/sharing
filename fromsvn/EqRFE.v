@@ -286,7 +286,7 @@ Definition eqrContains {n : nat} (f e : EqR n) : Type :=
 
 Notation "e '⊆' f" := (eqrContains e f) (at level 50).
 
-(*
+
 Lemma erAntiSymmetric {n : nat}
           (e1 e2 : EqR n) :
           (e1 ⊆ e2) → (e2 ⊆ e1) → e1 = e2.
@@ -298,8 +298,39 @@ Proof.
   pose (erCLeN d1) as C2LeC1.
   pose (erCLeN d2) as C1LeC2.
   pose (leAntiSymmetric _ _ (conj C1LeC2 C2LeC1)) as eq.
-  ...?
+  rewrite eq.
 *)
+
+Inductive Sub : nat → Type :=
+  | SEmpty : Sub 0
+  | SNew   : ∀ {n : nat}, Sub n → Sub (S n)
+  | SOld   : ∀ {n : nat}, Sub n → Sub (S n).
+
+Equations emptySub {n : nat} : Sub n :=
+emptySub {n:=0}      := SEmpty;
+emptySub {n:=(S n')} := SOld emptySub.
+
+Equations subMeet {n : nat} (s1 s2 : Sub n) : Sub n :=
+subMeet SEmpty     _        := SEmpty;
+subMeet (SNew t1) (SNew t2) := SNew (subMeet t1 t2);
+subMeet (SNew t1) (SOld t2) := SOld (subMeet t1 t2);
+subMeet (SOld t1) (SNew t2) := SOld (subMeet t1 t2);
+subMeet (SOld t1) (SOld t2) := SOld (subMeet t1 t2).
+
+Equations subJoin {n : nat} (s1 s2 : Sub n) : Sub n :=
+subJoin SEmpty     _        := SEmpty;
+subJoin (SNew t1) (SNew t2) := SNew (subJoin t1 t2);
+subJoin (SNew t1) (SOld t2) := SNew (subJoin t1 t2);
+subJoin (SOld t1) (SNew t2) := SNew (subJoin t1 t2);
+subJoin (SOld t1) (SOld t2) := SOld (subJoin t1 t2).
+
+
+Equations singleSub {n : nat} (x : Fin.t n) : Sub n :=
+singleSub {n:=0} x     :=! x;
+singleSub {n:=(S _)} x <= (finFUOrFL x) => {
+                          | (inleft (exist x' eq)) => SOld (singleSub x');
+                          | (inright eq) => SNew emptySub
+                          }.
 
 
 

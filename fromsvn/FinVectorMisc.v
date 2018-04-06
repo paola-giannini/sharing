@@ -1,6 +1,8 @@
 Require Import Utf8.
+Require Import Arith.
 Require Import Fin.
 Require Import Vector.
+Require Import NatMisc.
 From Equations Require Import Equations.
 Set Equations Transparent.
 Unset Equations WithK.
@@ -241,6 +243,114 @@ shiftinPrevious' a (cons _ ws) F1      := eq_refl;
 shiftinPrevious' a (cons _ ws) (FS t') := eq_trans _ (shiftinPrevious' a ws _).
 
 
+(* order relations on Fin.t *)
+
+Equations to_nat' {n : nat} (x : Fin.t (S n)) : nat :=
+to_nat' {n:=0} F1          := 0;
+to_nat' {n:=(S _)}  F1     := 0;
+to_nat' {n:=(S _)} (FS x') := S (to_nat' x').
+(*
+Definition to_nat' : ∀ {n : nat}, Fin.t (S n) → nat.
+Proof.
+  apply (Fin.rectS (λ _ y, nat)).
+  - intro. exact 0.
+  - intros _ _ toNat'. exact (S toNat').
+Defined.
+*)
+
+(* this is to_nat'_equation_4 :
+
+Lemma toNat'Lemma : ∀ {n : nat}, ∀ (x : Fin.t (S n)),
+                     to_nat' (FS x) = S (to_nat' x).
+Proof.
+  trivial.
+Defined.
+*)
+
+Lemma toNat'FU : ∀ {m : nat}, ∀ (x : Fin.t (S m)),
+                 @to_nat' (S m) (FU x) = to_nat' x.
+Proof.
+  intro m. induction m.
+  - intro x. apply (Fin.caseS' x).
+    + trivial.
+    + apply Fin.case0.
+  - intro x. apply (Fin.caseS' x).
+    + trivial.
+    + intro p.
+      assert (FU (FS p) = FS (FU p)) as H by trivial.
+      rewrite H. rewrite? to_nat'_equation_4. 
+      rewrite IHm.
+      trivial.
+Defined.
+
+
+(*
+Lemma toNat'LR : ∀ {m : nat}, ∀ (x : Fin.t (S m)),
+                 @to_nat' (S m) (L_R 1 x) = to_nat' x.
+Proof.
+  intro m. induction m.
+  - intro x. apply (Fin.caseS' x).
+    + trivial.
+    + apply Fin.case0.
+  - intro x. apply (Fin.caseS' x).
+    + trivial.
+    + intro p.
+      assert (L_R 1 (FS p) = FS (L_R 1 p)) as H by trivial.
+      rewrite H. rewrite? toNat'Lemma. 
+      rewrite IHm.
+      trivial.
+Defined.
+*)
+
+
+Definition leF : forall {m n : nat},
+                 Fin.t (S m) → Fin.t (S n) → Prop :=
+  λ m n x y, to_nat' x ≤ to_nat' y.
+
+Definition ltF : ∀ {m n : nat},
+                 Fin.t (S m) → Fin.t (S n) → Prop :=
+  λ m n x y, to_nat' x < to_nat' y.
+
+Notation "x ≼ y" := (leF x y) (at level 70).           (* \preceq *)
+Notation "x ≺ y" := (ltF x y) (at level 70).           (* \prec   *)
+Notation "x ≈ y" := ((x ≼ y) ∧ (y ≼ x)) (at level 70). (* \approx *)
+
+Definition leFDecidable {m n : nat}
+               (x : Fin.t (S m)) (y : Fin.t (S n)) :
+               {x ≼ y} + {~ (x ≼ y)}.
+Proof.
+  pose (to_nat' x) as x'.
+  pose (to_nat' y) as y'.
+  exact (le_dec x' y').
+Defined.
+
+Lemma ltTleF {m n : nat} (x : Fin.t (S m)) (y : Fin.t (S n)) :
+      x ≺ y ↔ (FS x) ≼ y.
+Proof.
+  unfold "≺","≼","<".
+  rewrite (to_nat'_equation_4).
+  split; intro; trivial.
+Defined.
+
+Lemma eqFLemma {m n : nat} (x : Fin.t (S m)) (y : Fin.t (S n)) :
+      x ≈ y ↔ (to_nat' x = to_nat' y).
+Proof.
+  unfold "≼". split.
+  - apply leAntiSymmetric.
+  - intro eq. split; rewrite eq; trivial.
+Defined. 
+
+Lemma ltFTricho {m n : nat} (x : Fin.t (S m)) (y : Fin.t (S n)) :
+      (x ≈ y) + (y ≺ x) + (x ≺ y).
+Proof.
+  unfold "≺".
+  pose (ltTricho (to_nat' x) (to_nat' y)) as tnT.
+  destruct tnT as [[Eq | GT ]| LT].
+  - left. left.
+    exact ((proj2 (eqFLemma x y)) (eq_sym Eq)).
+  - left. right. exact GT.
+  - right. exact LT.
+Defined.
 
 
 
