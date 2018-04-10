@@ -286,8 +286,32 @@ Definition eqrContains {n : nat} (f e : EqR n) : Type :=
 
 Notation "e '⊆' f" := (eqrContains e f) (at level 50).
 
+Definition eqrContainsReflexive {n : nat} (e : EqR n) : e ⊆ e :=
+            erContainsReflexive (projT2 e).
 
-Lemma erAntiSymmetric {n : nat}
+Definition eqrContainsTransitive {n : nat} 
+           (e1 e2 e3 : EqR n) :
+           (e1 ⊆ e2) → (e2 ⊆ e3) → (e1 ⊆ e3).
+Proof.
+  apply erContainsTransitive.
+Defined.
+
+(* not needed...
+Equations leDichoAlt (n m : nat) (nLEm : n ≤ m) (mLn : m < n) : False :=
+leDichoAlt n ?(n) le_n y := nleSuccDiagL _ y;
+leDichoAlt n _ (le_S nLEm) y <= leTrans _ _ _ y nLEm =>
+             | SSmLEm  <= leTrans _ _ _ (le_S _ _ (le_n _)) SSmLEm => 
+             | SmLEm := nleSuccDiagL _ SmLEm.
+
+Equations leDicho2 (n m : nat) (nLEm : n ≤ m) : (n = m) + (n < m) :=
+leDicho2 n m nLEm <= ltTricho n m =>
+          | (inl (inl mEQn)) := inl (eq_sym mEQn);
+          | (inl (inr mLTn)) := False_rect _ (leDichoAlt n m nLEm mLTn);
+          | (inr nLTm)       := inr nLTm.
+*)
+
+
+Lemma eqrContainsAntiSymmetric {n : nat}
           (e1 e2 : EqR n) :
           (e1 ⊆ e2) → (e2 ⊆ e1) → e1 = e2.
 Proof.
@@ -298,8 +322,65 @@ Proof.
   pose (erCLeN d1) as C2LeC1.
   pose (erCLeN d2) as C1LeC2.
   pose (leAntiSymmetric _ _ (conj C1LeC2 C2LeC1)) as eq.
-  rewrite eq.
+  destruct eq.
+  pose (ernnIdRel d1) as d1Id.
+  rewrite d1Id in eq1.
+  rewrite (idRelRight1 e1) in eq1.
+  rewrite eq1.
+  trivial.
+Defined.
+
+Equations allRel {n : nat} : ER (S n) 1 :=
+allRel {n:=O}     := □ ←▪;
+allRel {n:=(S m)} := allRel ← F1.
+
+Notation "▽" := allRel.
+         (* \bigtriangledown *)
+
+Definition idEqr {n : nat} : EqR n := existT _ n △.
+
+Equations allEqr {n : nat} : EqR n := 
+allEqr {n:=0}     := existT _ 0 □;
+allEqr {n:=(S _)} := existT _ 1 ▽.
+
+Notation "'Δ'" := idEqr.
+         (* \Delta *)
+Notation "'∇'" := allEqr.
+         (* \nabla *)
+
+Definition idEqrMin {n : nat} (e : EqR n) : Δ ⊆ e.
+Proof.
+  destruct e as [d e].
+  unfold "⊆". simpl.
+  exists e.
+  apply idRelLeft1.
+Defined.
+
+(* any equivalence relation with exactly 1 class is ▽ *)
+(*
+Equations ern1AllRel {n : nat} (e : ER (S n) 1) : e ← F1 = ▽ :=
 *)
+
+Equations ern1AllRel {n : nat} (e : ER (S n) 1) : e = ▽ :=
+ern1AllRel {n:=0}      (ERNew □)           := eq_refl;
+ern1AllRel {n:=(S _)}  (ERNew (ERPut t _)) :=! t;
+ern1AllRel {n:=(S _)}  (ERPut F1 e1) <= ern1AllRel e1 =>
+                                     | IH  := f_equal (ERPut F1) IH.
+
+Definition allRelRight {n d : nat} (e : ER (S n) (S d)) : e • ▽ = ▽.
+Proof.
+  apply ern1AllRel.
+Defined.
+
+Equations allEqrMax {n : nat} (e : EqR n) : e ⊆ ∇ :=
+allEqrMax {n:=0}     (existT 0 □)            := eqrContainsReflexive _;
+allEqrMax {n:=(S _)} (existT 0 (ERPut t e1)) :=! t;
+allEqrMax {n:=(S _)} (existT (S _) e1)       := _.
+Next Obligation.
+  unfold "⊆". simpl.
+  exists ▽.
+  apply allRelRight.
+Defined.
 
 Inductive Sub : nat → Type :=
   | SEmpty : Sub 0
@@ -324,12 +405,11 @@ subJoin (SNew t1) (SOld t2) := SNew (subJoin t1 t2);
 subJoin (SOld t1) (SNew t2) := SNew (subJoin t1 t2);
 subJoin (SOld t1) (SOld t2) := SOld (subJoin t1 t2).
 
-
 Equations singleSub {n : nat} (x : Fin.t n) : Sub n :=
 singleSub {n:=0} x     :=! x;
 singleSub {n:=(S _)} x <= (finFUOrFL x) => {
-                          | (inleft (exist x' eq)) => SOld (singleSub x');
-                          | (inright eq) => SNew emptySub
+                          | (inleft (exist x' eq)) := SOld (singleSub x');
+                          | (inright eq) := SNew emptySub
                           }.
 
 
