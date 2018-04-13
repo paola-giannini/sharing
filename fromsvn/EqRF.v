@@ -143,7 +143,7 @@ Proof.
   - (* case □ *)
     exact nil.
   - (* case _ ←▪ *)
-    exact (shiftin (finLast c) (map (L_R 1) IHER)).
+    exact (shiftin (FL c) (map FU IHER)).
   - (* case _ ← t *)
     exact (shiftin t IHER).
 Defined.
@@ -163,7 +163,7 @@ Eval compute in (erMapVector (□ ←▪ ←▪ ←▪ ← F2 ← F3 ← F3)).
 (* one step computation rules for ↓ *)
 
 Definition erMapNewLast : ∀ {n c : nat}, ∀ e : ER n c,
-           (e ←▪) ↓ (finLast n) = finLast c.
+           (e ←▪) ↓ (FL n) = FL c.
 Proof.
   intros n c e.
   apply shiftinLast.
@@ -171,21 +171,21 @@ Defined.
 
 Definition erMapNewPrevious : ∀ {n c : nat}, ∀ e : ER n c,
                               ∀ t : Fin.t n,
-           (e ←▪) ↓ (L_R 1 t) = L_R 1 (e ↓ t).
+           (e ←▪) ↓ (FU t) = FU (e ↓ t).
 Proof.
   intros n c e t.
-  replace ((e ←▪) ↓ (L_R 1 t)) with
+  replace ((e ←▪) ↓ (FU t)) with
           (Vector.nth
-            (shiftin (finLast c) (map (L_R 1) (erMapVector e)))
-            (L_R 1 t)) by trivial.
-  rewrite (shiftinPrevious (finLast c)
-                           (map (L_R 1)(erMapVector e)) t).
+            (shiftin (FL c) (map FU (erMapVector e)))
+            (FU t)) by trivial.
+  rewrite (shiftinPrevious (FL c)
+                           (map FU (erMapVector e)) t).
   apply (nthMapLemma).
 Defined.
 
 Definition erMapPutLast : ∀ {n c : nat}, ∀ e : ER n c,
                           ∀ x : Fin.t c,
-           (e ← x) ↓ (finLast n) = x.
+           (e ← x) ↓ (FL n) = x.
 Proof.
   intros n c e x.
   apply shiftinLast.
@@ -193,13 +193,13 @@ Defined.
 
 Definition erMapPutPrevious : ∀ {n c : nat}, ∀ e : ER n c,
                               ∀ x : Fin.t c, ∀ t : Fin.t n,
-           (e ← x) ↓ (L_R 1 t) = (e ↓ t).
+           (e ← x) ↓ (FU t) = (e ↓ t).
 Proof.
   intros n c e x t.
-  replace ((e ← x) ↓ (L_R 1 t)) with
+  replace ((e ← x) ↓ (FU t)) with
           (Vector.nth
             (shiftin x (erMapVector e))
-            (L_R 1 t)) by trivial.
+            (FU t)) by trivial.
   apply (shiftinPrevious x (erMapVector e) t).
 Defined.
 
@@ -246,7 +246,7 @@ Proof.
   - inversion x.
   - intro x.
     rewrite idRelStructure.
-    destruct (finLastOrPrevious x) as [[y eq]|eq]; rewrite eq.
+    destruct (finFUOrFL x) as [[y eq]|eq]; rewrite eq.
     + rewrite erMapNewPrevious.
       rewrite IHn.
       trivial.
@@ -374,26 +374,26 @@ Proof.
           rewrite eq; clear eq.
           - (* e2 = e2' ←▪ *)
             rewrite erComposeNN.
-            destruct (finLastOrPrevious x) as [[y eq]|eq]; rewrite eq.
-            + (* x = L_R 1 y *)
+            destruct (finFUOrFL x) as [[y eq]|eq]; rewrite eq.
+            + (* x = FU y *)
               rewrite ?erMapNewPrevious. rewrite IHn. trivial.
-            + (* x = finLast *)
+            + (* x = FL *)
               rewrite ?erMapNewLast. trivial.
           - (* e2 = e2' ← t2 *)
             unfold fst,snd. rewrite erComposeNP.
-            destruct (finLastOrPrevious x) as [[y eq]|eq]; rewrite eq.
-            + (* x = L_R 1 y *)
+            destruct (finFUOrFL x) as [[y eq]|eq]; rewrite eq.
+            + (* x = FU y *)
               rewrite erMapPutPrevious. rewrite erMapNewPrevious.
               rewrite erMapPutPrevious. apply IHn.
-            + (* x = finLast *)
+            + (* x = FL *)
               rewrite erMapPutLast. rewrite erMapNewLast. 
               rewrite erMapPutLast. trivial. }
       { (* e1 = e1' ← t1 *)
         unfold fst, snd. rewrite erComposeP.
-        destruct (finLastOrPrevious x) as [[y eq]|eq]; rewrite eq.
-        - (* x = L_R 1 y *)
+        destruct (finFUOrFL x) as [[y eq]|eq]; rewrite eq.
+        - (* x = FU y *)
           rewrite ?erMapPutPrevious. apply IHn.
-        - (* x = finLast *)
+        - (* x = FL *)
           rewrite ?erMapPutLast. trivial. }}
 Defined.
 
@@ -442,83 +442,4 @@ Proof.
             erRewrites IHn. }
 Defined.
 
-(* order relations on Fin.t *)
-(* (hopefully) better in FinVectorMisc
-Definition to_nat' : ∀ {n : nat}, Fin.t (S n) → nat.
-Proof.
-  apply (Fin.rectS (λ _ y, nat)).
-  - intro. exact 0.
-  - intros _ _ toNat'. exact (S toNat').
-Defined.
 
-Lemma toNat'Lemma : ∀ {n : nat}, ∀ (x : Fin.t (S n)),
-                     to_nat' (FS x) = S (to_nat' x).
-Proof.
-  trivial.
-Defined.
-
-Lemma toNat'LR : ∀ {m : nat}, ∀ (x : Fin.t (S m)),
-                 @to_nat' (S m) (L_R 1 x) = to_nat' x.
-Proof.
-  intro m. induction m.
-  - intro x. apply (Fin.caseS' x).
-    + trivial.
-    + apply Fin.case0.
-  - intro x. apply (Fin.caseS' x).
-    + trivial.
-    + intro p.
-      assert (L_R 1 (FS p) = FS (L_R 1 p)) as H by trivial.
-      rewrite H. rewrite? toNat'Lemma. 
-      rewrite IHm.
-      trivial.
-Defined.
-
-Definition leF : forall {m n : nat},
-                 Fin.t (S m) → Fin.t (S n) → Prop :=
-  λ m n x y, to_nat' x ≤ to_nat' y.
-
-Definition ltF : ∀ {m n : nat},
-                 Fin.t (S m) → Fin.t (S n) → Prop :=
-  λ m n x y, to_nat' x < to_nat' y.
-
-Notation "x ≼ y" := (leF x y) (at level 70).           (* \preceq *)
-Notation "x ≺ y" := (ltF x y) (at level 70).           (* \prec   *)
-Notation "x ≈ y" := ((x ≼ y) ∧ (y ≼ x)) (at level 70). (* \approx *)
-
-Definition leFDecidable {m n : nat}
-               (x : Fin.t (S m)) (y : Fin.t (S n)) :
-               {x ≼ y} + {~ (x ≼ y)}.
-Proof.
-  pose (to_nat' x) as x'.
-  pose (to_nat' y) as y'.
-  exact (le_dec x' y').
-Defined.
-
-Lemma ltTleF {m n : nat} (x : Fin.t (S m)) (y : Fin.t (S n)) :
-      x ≺ y ↔ (FS x) ≼ y.
-Proof.
-  unfold "≺","≼","<".
-  rewrite (toNat'Lemma x).
-  split; intro; trivial.
-Defined.
-
-Lemma eqFLemma {m n : nat} (x : Fin.t (S m)) (y : Fin.t (S n)) :
-      x ≈ y ↔ (to_nat' x = to_nat' y).
-Proof.
-  unfold "≼". split.
-  - apply leAntiSymmetric.
-  - intro eq. split; rewrite eq; trivial.
-Defined. 
-
-Lemma ltFTricho {m n : nat} (x : Fin.t (S m)) (y : Fin.t (S n)) :
-      (x ≈ y) + (y ≺ x) + (x ≺ y).
-Proof.
-  unfold "≺".
-  pose (ltTricho (to_nat' x) (to_nat' y)) as tnT.
-  destruct tnT as [[Eq | GT ]| LT].
-  - left. left.
-    exact ((proj2 (eqFLemma x y)) (eq_sym Eq)).
-  - left. right. exact GT.
-  - right. exact LT.
-Defined.
-*)

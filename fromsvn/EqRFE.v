@@ -77,7 +77,7 @@ Definition erMapNewLast : ∀ {n c : nat}, ∀ e : ER n c,
            (e ←▪) ↓ (FL n) = FL c.
 Proof.
   intros n c e.
-  apply shiftinLast'.
+  apply shiftinLast.
 Defined.
 
 Definition erMapNewPrevious : ∀ {n c : nat}, ∀ e : ER n c,
@@ -86,9 +86,9 @@ Definition erMapNewPrevious : ∀ {n c : nat}, ∀ e : ER n c,
 Proof.
   intros n c e t.
   replace ((e ←▪) ↓ (FU t)) with
-          (Vector.nth (shiftin (FL c) (map FU (erMapVector e))) (FU t)) 
+          (nth (shiftin (FL c) (map FU (erMapVector e))) (FU t)) 
            by trivial.
-  rewrite (shiftinPrevious' (FL c) (map FU (erMapVector e)) t).
+  rewrite (shiftinPrevious (FL c) (map FU (erMapVector e)) t).
   apply nthMapLemma.
 Defined.
 
@@ -97,7 +97,7 @@ Definition erMapPutLast : ∀ {n c : nat}, ∀ e : ER n c,
            (e ← x) ↓ (FL n) = x.
 Proof.
   intros n c e x.
-  apply shiftinLast'.
+  apply shiftinLast.
 Defined.
 
 Definition erMapPutPrevious : ∀ {n c : nat}, ∀ e : ER n c,
@@ -106,9 +106,9 @@ Definition erMapPutPrevious : ∀ {n c : nat}, ∀ e : ER n c,
 Proof.
   intros n c e x t.
   replace ((e ← x) ↓ (FU t)) with
-          (Vector.nth (shiftin x (erMapVector e)) (FU t)) 
+          (nth (shiftin x (erMapVector e)) (FU t)) 
           by trivial.
-  apply (shiftinPrevious' x (erMapVector e) t).
+  apply (shiftinPrevious x (erMapVector e) t).
 Defined.
 
 (* the identity relation *)
@@ -139,28 +139,29 @@ ernnIdRel {n:=0}      □           := eq_refl;
 ernnIdRel {n:=(S _)} (ERNew e')   := f_equal ERNew (ernnIdRel e');
 ernnIdRel {n:=(S _)} (ERPut t e') := False_rect _ (nleSuccDiagL _ (erCLeN e')).
 
-(* would be nice, but doesn't quite work..
-Equations idRelId {n : nat} (x : Fin.t n) : △ ↓ x = x :=
-idRelId {n:=0} x :=! x;
-idRelId {n:=(S _)} x <= finFUOrFL x => {
-                      | (inleft (exist y eq (* x = FU y *))) :=
-                        (* △ ↓ x *)
-                        ...;
-                      | (inright eq) := _ }.
-*)
+(* the class map of idRel is the identity *)
 
-Lemma idRelId : ∀ {n : nat}, ∀ x : Fin.t n, △ ↓ x = x.
-Proof.
-  induction n.
-  - inversion x.
-  - intro x.
-    rewrite idRel_equation_2.
-    destruct (finFUOrFL x) as [[y eq]|eq]; rewrite eq.
-    + rewrite erMapNewPrevious.
-      rewrite IHn.
-      trivial.
-    + apply erMapNewLast.
-Defined.
+Equations idRelId {n : nat} (x : Fin.t n) : △ ↓ x = x :=
+idRelId {n:=0}     x :=! x;
+idRelId {n:=(S _)} x <= finFUOrFL x => {
+                     | (inl (existT y eq (* x = FU y *))) :=
+                       (* △ ↓ x *) (eq_trans
+                         (f_equal _ eq)
+                       (* △ ↓ (FU y) *) (eq_trans
+                         (erMapNewPrevious △ y)
+                       (* FU (△ ↓ y) *) (eq_trans
+                         (f_equal FU (idRelId y))
+                       (* FU y *)
+                         (eq_sym eq))));
+                     | (inr eq) (* x = FL _ *) := 
+                       (* △ ↓ x *) (eq_trans
+                         (f_equal _ eq)
+                       (* △ ↓ (FL n') *) (eq_trans
+                         (erMapNewLast △)
+                       (* FL n' *)
+                         (eq_sym eq)))}.
+
+(* composition *)
 
 Equations composeER {n c d: nat}
                  (e1 : ER n c) (e2 : ER c d) : ER n d :=
@@ -208,21 +209,20 @@ Ltac erRewrites0 :=
               (rewrite erMapPutPrevious) ||
               (rewrite erMapPutLast)     || trivial.
 
-
 Obligation Tactic := program_simpl; erRewrites0.
 
 Equations erMapCompose {n m l : nat} (e1 : ER n m)
       (e2 : ER m l) (x : Fin.t n) :
       (e1 • e2) ↓ x = e2 ↓ (e1 ↓ x) :=
 erMapCompose {n:=0}     _ _ x :=! x;
-erMapCompose {n:=(S _)} e1 e2 x <= (finFUOrFL x) => {
-  erMapCompose {n:=(S _)} (ERNew e1')    (ERNew e2')    x (inleft (exist y eq)) 
+erMapCompose {n:=(S _)} e1 e2 x <= finFUOrFL x => {
+  erMapCompose {n:=(S _)} (ERNew e1')    (ERNew e2')    x (inl (existT y eq)) 
                                    <= erMapCompose e1' e2' y => { | IH := _};
-  erMapCompose {n:=(S _)} (ERNew e1')    (ERNew e2')    x (inright eq)          := _;
-  erMapCompose {n:=(S _)} (ERNew e1')    (ERPut t2 e2') x (inleft (exist y eq)) := _;
-  erMapCompose {n:=(S _)} (ERNew e1')    (ERPut t2 e2') x (inright eq)          := _;
-  erMapCompose {n:=(S _)} (ERPut t1 e1')  e2            x (inleft (exist y eq)) := _;
-  erMapCompose {n:=(S _)} (ERPut t1 e1')  e2            x (inright eq)          := _}.
+  erMapCompose {n:=(S _)} (ERNew e1')    (ERNew e2')    x (inr eq)            := _;
+  erMapCompose {n:=(S _)} (ERNew e1')    (ERPut t2 e2') x (inl (existT y eq)) := _;
+  erMapCompose {n:=(S _)} (ERNew e1')    (ERPut t2 e2') x (inr eq)            := _;
+  erMapCompose {n:=(S _)} (ERPut t1 e1')  e2            x (inl (existT y eq)) := _;
+  erMapCompose {n:=(S _)} (ERPut t1 e1')  e2            x (inr eq)            := _}.
 Next Obligation.
   rewrite IH. trivial.
 Defined.
@@ -364,8 +364,7 @@ Equations ern1AllRel {n : nat} (e : ER (S n) 1) : e ← F1 = ▽ :=
 Equations ern1AllRel {n : nat} (e : ER (S n) 1) : e = ▽ :=
 ern1AllRel {n:=0}      (ERNew □)           := eq_refl;
 ern1AllRel {n:=(S _)}  (ERNew (ERPut t _)) :=! t;
-ern1AllRel {n:=(S _)}  (ERPut F1 e1) <= ern1AllRel e1 =>
-                                     | IH  := f_equal (ERPut F1) IH.
+ern1AllRel {n:=(S _)}  (ERPut F1 e1)       := f_equal (ERPut F1) (ern1AllRel e1).
 
 Definition allRelRight {n d : nat} (e : ER (S n) (S d)) : e • ▽ = ▽.
 Proof.
@@ -381,6 +380,8 @@ Next Obligation.
   exists ▽.
   apply allRelRight.
 Defined.
+
+(* subsets ... *)
 
 Inductive Sub : nat → Type :=
   | SEmpty : Sub 0
@@ -407,12 +408,45 @@ subJoin (SOld t1) (SOld t2) := SOld (subJoin t1 t2).
 
 Equations singleSub {n : nat} (x : Fin.t n) : Sub n :=
 singleSub {n:=0} x     :=! x;
-singleSub {n:=(S _)} x <= (finFUOrFL x) => {
-                          | (inleft (exist x' eq)) := SOld (singleSub x');
-                          | (inright eq) := SNew emptySub
-                          }.
+singleSub {n:=(S _)} x <= finFUOrFL x => {
+                       | (inl (existT x' _)) <= (singleSub x') => {
+                          | s :=  SOld s };
+                       | (inr _) := SNew emptySub  }.
 
+(* a subset s defines an equivalence relation that
+   connects the elements of s *)
 
+(* we need a type that has an equivalence and maybe a
+   distinguished equivalence class  *)
 
+Definition EqRMaybeStar (n : nat) : Type :=
+          { d : nat & (ER n d * option (Fin.t d))%type}.
 
-
+Equations eqrFromSub' {n : nat} (s : Sub n) : EqRMaybeStar n :=
+eqrFromSub' SEmpty := (existT _ 0 (□ , None));
+(* this complains about non-exhaustive pattern matching ???
+eqrFromSub' (SOld s) with (eqrFromSub' s) := {
+                                | (existT _ d (pair _ _ e None))
+                                := existT _ (S d) (e ←▪, None);
+                                | existT _ d (pair _ _ e (Some t))
+                                := existT _ (S d) (e ←▪ , Some (FU t))};
+eqrFromSub' (SNew s) with (eqrFromSub' s) := {
+                                | existT _ d (pair _ _ e None)
+                                := existT (S d) (e ←▪ , Some (FL d));
+                                | existT _ d (pair _ _ e  (Some t))
+                                := existT _ d (e ← t , Some t)}.
+so we have to do it with holes: *)
+eqrFromSub' (SOld s) with (eqrFromSub' s) := {
+                        |IH := _};
+eqrFromSub' (SNew s) with (eqrFromSub' s) := {
+                        |IH := _}.
+Next Obligation.
+  destruct IH as [d [e [t|]]]; exists (S d).
+  - exact (e ←▪ , Some (FU t)).
+  - exact (e ←▪ , None).
+Defined.
+Next Obligation.
+  destruct IH as [d [e [t|]]].
+  - exists d. exact (e ← t , Some t).
+  - exists (S d). exact (e ←▪ , Some (FL d)).
+Defined.
