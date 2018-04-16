@@ -58,11 +58,10 @@ Definition equalShR {l : list atom} (sr1 sr2 : shRel l) : Prop :=
 (*******************************************************************)
 
 (* the identity sharing relation *)
-(*
-Definition id_shRel (l : list atom) : shRel l := 
-            eq_Fin_Dec_Equivalence.
 
-*)
+Definition id_shRel (l : list atom) : shRel l := 
+            eqFinDecidableEquivalence.
+
 
 Open Scope decidableEquivalence_scope.
 
@@ -146,8 +145,8 @@ Fixpoint add_eq_X {l : list atom}
    addSingle *)
 
 Definition rem_res {l : list atom} (shR : shRel l) : shRel l := 
-           addSingle_Dec_Equivalence 
-               (pullback_Dec_Equivalence FS shR).
+           addSingleDecidableEquivalence 
+               (pullbackDecidableEquivalence FS shR).
 
 (* to restrict to a prefix, pull back along Fin.L (length rest) *)
 
@@ -161,7 +160,7 @@ Proof.
      (S (length l1)) + length l2)%nat as SL1L2 by trivial.
   rewrite LL1L2 in shR.
   rewrite SL1L2 in shR.
-  exact (pullback_Dec_Equivalence (Fin.L (length l2)) shR).
+  exact (pullbackDecidableEquivalence (Fin.L (length l2)) shR).
 Defined.
 
 (* We can also erase a prefix from a list and restrict the sharing
@@ -189,7 +188,7 @@ Proof.
   assert (length (l1 ++ l2) = 
      (length l1 + length l2)%nat) as LL1L2 by apply List.app_length.
   rewrite LL1L2 in shR.
-  exact (pullback_Dec_Equivalence (gapAboveF1 (length l1)) shR).
+  exact (pullbackDecidableEquivalence (gapAboveF1 (length l1)) shR).
 Defined.
 
 (* list of all elements in Fin.t n *)
@@ -202,8 +201,8 @@ Fixpoint listAllFin (n : nat) : list (Fin.t n) :=
 
 Fixpoint vectAllFin (n : nat) : Vector.t (Fin.t n) n :=
   match n with
-  | O      => nil (Fin.t O)
-  | (S n') => cons _ F1 _ (map FS (vectAllFin n'))
+  | O      => nil
+  | (S n') => cons F1 (map FS (vectAllFin n'))
   end.
 
 Definition vectAllFS (n : nat) : Vector.t (Fin.t (S n)) n :=
@@ -220,8 +219,8 @@ Fixpoint getLastOrDefault' {n : nat} {A : Type} (P : A -> Prop)
          (v : Vector.t A n) (default : A) (Pd : P default) 
          {struct v}: { x : A & P x } :=
   match v with
-  | nil _         => existT _ default Pd
-  | cons _ y _ v' => 
+  | nil        => existT _ default Pd
+  | cons y v'  => 
     match (isDecP y) with
     | left Py  => getLastOrDefault' P isDecP v' y Py
     | right _  => getLastOrDefault' P isDecP v' default Pd
@@ -249,7 +248,7 @@ Definition getLastOrDefaultP {n : nat} {A : Type} (P : A -> Prop)
 (* first along with a proof that it is related to F1 *)
 
 Definition classMaxF1' {n : nat} 
-           (DER : Dec_Equivalence (Fin.t (S n))) : 
+           (DER : DecidableEquivalence (Fin.t (S n))) : 
            { x : Fin.t (S n) & (projT1 DER) F1 x } :=
   let P      := (projT1 DER) F1 in
   let isDecP := (snd (projT2 DER)) F1 in
@@ -262,14 +261,14 @@ Definition classMaxF1' {n : nat}
 (* now project out the element *)
 
 Definition classMaxF1 {n : nat} 
-           (DER : Dec_Equivalence (Fin.t (S n))) : 
+           (DER : DecidableEquivalence (Fin.t (S n))) : 
            Fin.t (S n) :=
   projT1 (classMaxF1' DER).
 
 (* and the proof that it is related to F1 *)
 
 Definition classMaxF1_related {n : nat} 
-           (DER : Dec_Equivalence (Fin.t (S n))) : 
+           (DER : DecidableEquivalence (Fin.t (S n))) : 
            (projT1 DER) F1 (classMaxF1 DER) :=
   projT2 (classMaxF1' DER).
 
@@ -286,18 +285,18 @@ Definition classMaxF1_related {n : nat}
       - return addpair (F1 M1) (addpair (F1 M2) (addSingle sum')). *)
 
 Definition sum_Dec_Equivalence {n : nat} 
-           (DER1 DER2 : Dec_Equivalence (Fin.t (S n))) : 
-           Dec_Equivalence (Fin.t (S n)).
+           (DER1 DER2 : DecidableEquivalence (Fin.t (S n))) : 
+           DecidableEquivalence (Fin.t (S n)).
 Proof.
   induction n.
-  - exact (eq_Fin_Dec_Equivalence).
-  - pose (M1 := get_class_maxF1 DER1).
-    pose (M2 := get_class_maxF1 DER2).
-    pose (sum' := IHn (pullback_Dec_Equivalence FS DER1) 
-                      (pullback_Dec_Equivalence FS DER2)).
-    exact (addpair_Dec_Equivalence F1 M1 
-          (addpair_Dec_Equivalence F1 M2 
-          (addSingle_Dec_Equivalence sum'))).
+  - exact (eqFinDecidableEquivalence).
+  - pose (M1 := classMaxF1 DER1).
+    pose (M2 := classMaxF1 DER2).
+    pose (sum' := IHn (pullbackDecidableEquivalence FS DER1) 
+                      (pullbackDecidableEquivalence FS DER2)).
+    exact (addpairDecidableEquivalence F1 M1 
+          (addpairDecidableEquivalence F1 M2 
+          (addSingleDecidableEquivalence sum'))).
 Defined.
 
 Definition add_shr {l : list atom} 
@@ -365,4 +364,3 @@ Definition eq_res {l : list atom} (sr : shRel l) : list atom :=
   let idxs := filter_Dec P pDec (listAllFin (length l)) in
   List.map (nth (Vector.of_list l)) idxs.
 
-*)

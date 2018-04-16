@@ -1,4 +1,3 @@
-Require Import Utf8.
 Require Import Arith.
 Require Import Fin.
 Require Import Vector.
@@ -165,7 +164,7 @@ to_nat' {n:=(S _)}  F1     := 0;
 to_nat' {n:=(S _)} (FS x') := S (to_nat' x').
 
 
-Lemma toNat'FU : ∀ {m : nat}, ∀ (x : Fin.t (S m)),
+Lemma toNat'FU : forall {m : nat}, forall (x : Fin.t (S m)),
                  @to_nat' (S m) (FU x) = to_nat' x.
 Proof.
   intro m. induction m.
@@ -183,20 +182,26 @@ Defined.
 
 
 Definition leF : forall {m n : nat},
-                 Fin.t (S m) → Fin.t (S n) → Prop :=
-  λ m n x y, to_nat' x ≤ to_nat' y.
+                 Fin.t (S m) -> Fin.t (S n) -> Prop :=
+  fun m n x y => to_nat' x <= to_nat' y.
 
-Definition ltF : ∀ {m n : nat},
-                 Fin.t (S m) → Fin.t (S n) → Prop :=
-  λ m n x y, to_nat' x < to_nat' y.
+Definition ltF : forall {m n : nat},
+                 Fin.t (S m) -> Fin.t (S n) -> Prop :=
+  fun m n x y => to_nat' x < to_nat' y.
 
-Notation "x ≼ y" := (leF x y) (at level 70).           (* \preceq *)
-Notation "x ≺ y" := (ltF x y) (at level 70).           (* \prec   *)
-Notation "x ≈ y" := ((x ≼ y) ∧ (y ≼ x)) (at level 70). (* \approx *)
+(*
+Notation "x <=~ y" := (leF x y) (at level 70).           (* \preceq *)
+Notation "x <~ y" := (ltF x y) (at level 70).           (* \prec   *)
+Notation "x =~ y" := ((x <=~ y) ∧ (y <=~ x)) (at level 70). (* \approx *)
+*)
+
+Notation "x <=~ y" := (leF x y) (at level 70).
+Notation "x <~ y"  := (ltF x y) (at level 70).
+Notation "x =~ y"  := ((x <=~ y) /\ (y <=~ x)) (at level 70).
 
 Definition leFDecidable {m n : nat}
                (x : Fin.t (S m)) (y : Fin.t (S n)) :
-               {x ≼ y} + {~ (x ≼ y)}.
+               {x <=~ y} + {~ (x <=~ y)}.
 Proof.
   pose (to_nat' x) as x'.
   pose (to_nat' y) as y'.
@@ -204,25 +209,25 @@ Proof.
 Defined.
 
 Lemma ltTleF {m n : nat} (x : Fin.t (S m)) (y : Fin.t (S n)) :
-      x ≺ y ↔ (FS x) ≼ y.
+      x <~ y <-> (FS x) <=~ y.
 Proof.
-  unfold "≺","≼","<".
+  unfold "<~","<=~","<".
   rewrite (to_nat'_equation_4).
   split; intro; trivial.
 Defined.
 
 Lemma eqFLemma {m n : nat} (x : Fin.t (S m)) (y : Fin.t (S n)) :
-      x ≈ y ↔ (to_nat' x = to_nat' y).
+      x =~ y <-> (to_nat' x = to_nat' y).
 Proof.
-  unfold "≼". split.
+  unfold "<=~". split.
   - apply leAntiSymmetric.
   - intro eq. split; rewrite eq; trivial.
-Defined. 
+Defined.
 
 Lemma ltFTricho {m n : nat} (x : Fin.t (S m)) (y : Fin.t (S n)) :
-      (x ≈ y) + (y ≺ x) + (x ≺ y).
+      (x =~ y) + (y <~ x) + (x <~ y).
 Proof.
-  unfold "≺".
+  unfold "<~".
   pose (ltTricho (to_nat' x) (to_nat' y)) as tnT.
   destruct tnT as [[Eq | GT ]| LT].
   - left. left.

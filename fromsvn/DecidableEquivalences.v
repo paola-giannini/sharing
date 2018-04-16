@@ -1,4 +1,3 @@
-Require Import Utf8.
 Require Import Fin.
 Require Import Vector.
 Require Import Relations_1.
@@ -58,38 +57,38 @@ Definition decidableEquivalenceContains
            {A : Type} (DER1 DER2 : DecidableEquivalence A) : Prop :=
   contains _ (projT1 DER1) (projT1 DER2).
 
-Notation "D ⊆ E" := (decidableEquivalenceContains E D)
+Notation "D 'c=' E" := (decidableEquivalenceContains E D)
     (no associativity, at level 70) : decidableEquivalence_scope.
     (* \subseteq *)
 
 Open Scope decidableEquivalence_scope.
 
-(* ⊆ is reflexive *)
+(* c= is reflexive *)
 
 Lemma decidableEquivalenceContainsReflexive
       {A : Type} (DER : DecidableEquivalence A) :
-      DER ⊆ DER.
+      DER c= DER.
 Proof.
   intros x y xRy. exact xRy.
 Qed.
 
-(* ⊆ is transitive *)
+(* c= is transitive *)
 
 Lemma decidableEquivalenceContainsTransitive
       {A : Type} (DER1 DER2 DER3 : DecidableEquivalence A) :
-      DER1 ⊆ DER2  ∧  DER2 ⊆ DER3  ->  DER1 ⊆ DER3.
+      DER1 c= DER2  /\  DER2 c= DER3  ->  DER1 c= DER3.
 Proof.
   intro c12andc23.
   destruct c12andc23 as [c12 c23].
-  unfold "⊆". unfold contains. intros x y xR1y.
+  unfold "c=". unfold contains. intros x y xR1y.
   apply c23. apply c12. exact xR1y.
 Qed.
 
 Definition decidableEquivalenceEquals
            {A : Type} (DER1 DER2 : DecidableEquivalence A) : Prop :=
-  DER1 ⊆ DER2 ∧ DER2 ⊆ DER1.
+  DER1 c= DER2 /\ DER2 c= DER1.
 
-Notation "D ≡ E" := (decidableEquivalenceEquals E D) 
+Notation "D '===' E" := (decidableEquivalenceEquals E D) 
     (no associativity, at level 70) : decidableEquivalence_scope.
     (* \equiv *)
 
@@ -132,7 +131,7 @@ Proof.
   exact (eqEquivalence, eqFinDecidable n).
 Defined.
 
-Notation "'△'" := eqFinDecidableEquivalence :
+Notation "'eqFDE'" := eqFinDecidableEquivalence :
                        decidableEquivalence_scope.
          (* \bigtriangleup △ *)
 
@@ -140,7 +139,8 @@ Notation "'△'" := eqFinDecidableEquivalence :
    so △ ⊆ DER for any decidableEquivalence DER on any Fin.t n *)
 
 Lemma eqSmallestDecidableEquivalence
-      {n : nat} (DER : DecidableEquivalence (Fin.t n)) : △ ⊆ DER.
+      {n : nat} (DER : DecidableEquivalence (Fin.t n)) : 
+      eqFDE c= DER.
 Proof.
   compute.
   intros x y xEqy.
@@ -152,7 +152,7 @@ Qed.
    in eq *)
 
 Lemma eqLargestDecidableEquivalenceFin1
-      (DER : DecidableEquivalence (Fin.t 1)) : DER ⊆ △.
+      (DER : DecidableEquivalence (Fin.t 1)) : DER c= eqFDE.
 Proof.
   intros x y xRy. compute.
   exact (fin1IsProp x y).
@@ -161,7 +161,7 @@ Qed.
 (* on (Fin.t 1), any decidable equivalence is equal to △ *)
 
 Lemma eqOnlyDecidableEquivalenceFin1
-      (DER : DecidableEquivalence (Fin.t 1)) : DER ≡ △.
+      (DER : DecidableEquivalence (Fin.t 1)) : DER === eqFDE.
 Proof.
   split.
   apply eqSmallestDecidableEquivalence.

@@ -1,4 +1,3 @@
-Require Import Utf8.
 Require Import Arith.
 Require Import Fin.
 Require Import Vector.
@@ -7,9 +6,9 @@ From Equations Require Import Equations.
 Set Equations Transparent.
 Unset Equations WithK.
 
-Inductive Nif : nat → Type :=
-    | FL : ∀ {n : nat}, Nif (S n)
-    | FU : ∀ {n : nat}, Nif n → Nif (S n).
+Inductive Nif : nat -> Type :=
+    | FL : forall {n : nat}, Nif (S n)
+    | FU : forall {n : nat}, Nif n -> Nif (S n).
 
 Equations fromFin {n : nat} (x : Fin.t n) : Nif n :=
   fromFin {n:=0}     x      :=! x;
@@ -32,6 +31,4 @@ Equations fromToFin {n : nat} (x : Nif n) :
   fromToFin {n:=0}      x     :=! x;
   fromToFin {n:=(S _)}  FL    := eq_refl;
   fromToFin {n:=(S _)} (FU y) := (f_equal FU (fromToFin y)).
-
-Print Grammar constr.
 
