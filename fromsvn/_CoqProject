@@ -10,5 +10,6 @@
 ./TypedLanguage.v
 ./Metatheory.v
 ./NatMisc.v
+./Perm.v
 ./SharingRelation.v
 ./GarbageElimination.v

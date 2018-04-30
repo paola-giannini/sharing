@@ -140,6 +140,9 @@ Proof.
     exact (shiftin t IHER).
 Defined.
 
+Notation "e '@@' t" := (Vector.nth (erMapVector e) t) (at level 5).
+                                               (* \downarrow *)
+
 (* example computations ...
 Eval compute in (erMapVector (□ ←▪ ← F1 ←▪ ← F2 ← F1)).
 (* representation of [[1,2,5],[3,4,9],[6,8],[7]] *)
@@ -152,44 +155,44 @@ Eval compute in (erMapVector (□ ←▪ ←▪ ←▪ ← F2 ← F3 ← F3)).
 (* one step computation rules for nth (erMapVector _) _  *)
 
 Definition erMapNewLast : forall {n c : nat}, forall e : ER n c,
-           nth (erMapVector (ERNew e)) (FL n) = FL c.
+           (ERNew e) @@ (FL n) = FL c.
 Proof.
   intros n c e.
   apply shiftinLast.
 Defined.
 
 Definition erMapNewPrevious : forall {n c : nat}, forall e : ER n c,
-                              forall t : Fin.t n,
-           nth (erMapVector (ERNew e)) (FU t) = FU (nth (erMapVector e) t).
+                              forall x : Fin.t n,
+           (ERNew e) @@ (FU x) = FU (e @@ x).
 Proof.
-  intros n c e t.
-  replace (nth (erMapVector (ERNew e))(FU t)) with
+  intros n c e x.
+  replace ((ERNew e) @@ (FU x)) with
           (nth
             (shiftin (FL c) (map FU (erMapVector e)))
-            (FU t)) by trivial.
+            (FU x)) by trivial.
   rewrite (shiftinPrevious (FL c)
-                           (map FU (erMapVector e)) t).
+                           (map FU (erMapVector e)) x).
   apply (nthMapLemma).
 Defined.
 
 Definition erMapPutLast : forall {n c : nat}, forall e : ER n c,
                           forall x : Fin.t c,
-           nth (erMapVector (ERPut x e)) (FL n) = x.
+           (ERPut x e) @@ (FL n) = x.
 Proof.
   intros n c e x.
   apply shiftinLast.
 Defined.
 
 Definition erMapPutPrevious : forall {n c : nat}, forall e : ER n c,
-                              forall x : Fin.t c, forall t : Fin.t n,
-           nth (erMapVector (ERPut x e)) (FU t) = nth (erMapVector e) t.
+                              forall x : Fin.t c, forall y : Fin.t n,
+           (ERPut x e) @@ (FU y) = e @@ y.
 Proof.
-  intros n c e x t.
-  replace (nth (erMapVector (ERPut x e)) (FU t)) with
+  intros n c e x y.
+  replace ((ERPut x e) @@ (FU y)) with
           (nth
             (shiftin x (erMapVector e))
-            (FU t)) by trivial.
-  apply (shiftinPrevious x (erMapVector e) t).
+            (FU y)) by trivial.
+  apply (shiftinPrevious x (erMapVector e) y).
 Defined.
 
 (* the identity relation *)
@@ -227,7 +230,7 @@ Defined.
 (* erMap of idRel is the identity *)
 
 Lemma idRelId : forall {n : nat}, forall x : Fin.t n, 
-                nth (erMapVector idRel) x = x.
+                idRel @@ x = x.
 Proof.
   induction n.
   - inversion x.
@@ -259,37 +262,38 @@ Proof.
         { destruct (erCase e2) as [[e2' _]|[[e2' t2] _]].
           - exact (ERNew (IHn _ _ e1' e2')).
           - exact (ERPut t2 (IHn _ _ e1' e2')). }
-        {   exact (ERPut (nth (erMapVector e2) t1)
+        {   exact (ERPut (e2 @@ t1)
                          (IHn _ _ e1' e2)). }
 Defined.
 
+Notation  "e1 '**' e2" := (@erCompose _ _ _ e1 e2) 
+                         (at level 60, right associativity).
+
 (* example computation
-Eval compute in ((□ ←▪ ← F1 ←▪ ← F2 ←▪) • (□ ←▪ ←▪ ← F1)).
+Eval compute in ((□ ←▪ ← F1 ←▪ ← F2 ←▪) ** (□ ←▪ ←▪ ← F1)).
 *)
 
-Lemma erComposeNN : forall {n c d : nat}, forall e : ER n c, forall e' : ER c d,
-        erCompose (ERNew e) (ERNew e') = ERNew (erCompose e e').
+Lemma erComposeNN {n c d : nat} (e : ER n c) (e' : ER c d) :
+                  (ERNew e) ** (ERNew e') = ERNew (e ** e').
 Proof.
   trivial.
 Defined.
 
-Lemma erComposeNP : forall {n c d : nat}, forall e : ER n c,
-                    forall e' : ER c d, forall t : Fin.t d,
-        erCompose (ERNew e) (ERPut t e') = ERPut t (erCompose e e').
+Lemma erComposeNP {n c d : nat} (e : ER n c)
+                  (e' : ER c d) (x : Fin.t d) :
+                  (ERNew e) ** (ERPut x e') = ERPut x (e ** e').
 Proof.
-  intros.
   induction d.
-  - apply Fin.case0. exact t.
+  - apply Fin.case0. exact x.
   - trivial.
 Defined.
 
-Lemma erComposeP : forall {n c d : nat}, forall e : ER n c,
-                   forall e' : ER c d, forall t : Fin.t c,
-       erCompose (ERPut t e) e' = ERPut (nth (erMapVector e') t) (erCompose e e').
+Lemma erComposeP {n c d : nat} (e : ER n c)
+                 (e' : ER c d) (x : Fin.t c) :
+                 (ERPut x e) ** e' = ERPut (e' @@ x) (e ** e').
 Proof.
-  intros.
   destruct c.
-  - inversion t.
+  - inversion x.
   - destruct n.
     + apply (er0SAbsurd e).
     + destruct d.
@@ -299,8 +303,8 @@ Defined.
 
 (* idRel is left neutral for erCompose *)
 
-Lemma idRelLeftNeutral : forall {n c : nat}, forall e : ER n c, 
-                         erCompose idRel e = e.
+Lemma idRelLeftNeutral : forall {n c : nat}, forall e : ER n c,
+                         idRel ** e = e.
 Proof.
   induction n; destruct c; intro e.
   - rewrite (er00Empty e). trivial.
@@ -311,7 +315,7 @@ Proof.
     + rewrite erComposeNN.
       rewrite IHn.
       trivial.
-    + unfold fst,snd.
+    + unfold fst, snd.
       rewrite erComposeNP.
       rewrite IHn.
       trivial.
@@ -320,7 +324,7 @@ Defined.
 (* idRel is right neutral for erCompose *)
 
 Lemma idRelRightNeutral : forall {n c : nat}, forall e : ER n c, 
-                          erCompose e idRel = e.
+                          e ** idRel = e.
 Proof.
   intro n.
   induction n; destruct c; intro e.
@@ -341,8 +345,7 @@ Defined.
 
 Lemma erMapCompose : forall {n m l : nat}, forall e1 : ER n m,
       forall e2 : ER m l, forall x : Fin.t n,
-      nth (erMapVector (erCompose e1 e2)) x =
-      nth (erMapVector e2) (nth (erMapVector e1) x).
+      (e1 ** e2) @@ x = e2 @@ (e1 @@ x).
 Proof.
   intro n; induction n.
   { (* n== 0 *)
