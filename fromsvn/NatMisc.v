@@ -1,8 +1,14 @@
 Require Import OrdersTac.
 Require Import PeanoNat.
+From Equations Require Import Equations.
+Set Equations Transparent.
+Unset Equations WithK.
+
+Equations uipNat {n : nat} (eq : n = n) : eq = eq_refl :=
+uipNat eq_refl := eq_refl.
 
 (* PeanoNat.Nat.add_0_r, PeanoNat.Nat.add_succ_r, ...
-   are opaque, so we have to reprove them here       *)
+   are opaque, so we have to reprove them       *)
 
 Definition addSuccL (n m : nat) : S n + m = S (n + m).
 Proof.

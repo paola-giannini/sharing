@@ -6,77 +6,78 @@ Require Import Fin.
 Require Import Vector.
 Require Import FinVectorMisc.
 Import VectorNotations.
+Require Import SigmaMisc.
+Require Import NotationsMisc.
 From Equations Require Import Equations.
 Set Equations Transparent.
-(*Unset Equations WithK.*)
+Unset Equations WithK.
 
 (** Equivalence relations on {0,1,...,n-1} **)
 
-(*
-   To build a type of all equivalence relations on {0,1,...,n-1}, just
+(* To build a type of all equivalence relations on {0,1,...,n-1}, just
    describe the process of putting elements into their classes one by one:
 
    - start with an empty list of classes
-   - assuming {0,1,...,i-1} have been put into classes already, either
-     + the element i is not related to any of the lower elements,
+   - assuming {0,1,...,n-1} have been put into classes already, either
+     + the element n is not related to any of the lower elements,
        thus forming a new class, or
-     + i belongs to one of the existing classes.
+     + n belongs to one of the existing classes.
 
-   This translates into an inductive type family indexed by n and
-   the number of classes: 
-*)
+   This translates into an inductive type family indexed by the number
+   of elements and the number of classes: *)
 
 Inductive ER : nat -> nat -> Type :=
-  | EREmpty : ER O O
-  | ERNew   : forall {n c : nat},            ER n c -> ER (S n) (S c)
-  | ERPut   : forall {n c : nat}, Fin.t c -> ER n c -> ER (S n)  c.
+  | EREmpty             :                      ER O O
+  | ERNew   {n c : nat} :            ER n c -> ER (S n) (S c)
+  | ERPut   {n c : nat} : Fin.t c -> ER n c -> ER (S n) c.
 
-Notation "#"        := EREmpty.
-Notation "e '<*'"   := (ERNew e) (at level 70).
+Notation "#"        :=  EREmpty.
+Notation "e '<*'"   := (ERNew e)   (at level 70).
 Notation "e '<<' x" := (ERPut x e) (at level 69, left associativity).
 
-(* unfortunately, <* and <<  cannot be used in patterns *)
+(* unfortunately, <* and <<  cannot be used in patterns of "Equations" *)
 
-Notation F2 := (FS F1).  Notation F3 := (FS F2). Notation F4 := (FS F3).
-Notation F5 := (FS F4).  Notation F6 := (FS F5). Notation F7 := (FS F6).
-Notation F8 := (FS F7).  Notation F9 := (FS F8).
+(* since we have EqDec for nat and Fin.t, EqDec for ER is derivable *)
+
+Derive EqDec for ER.
+
+(* and thus we also have UIP *)
+
+Equations uipER {n c : nat} {e1 : ER n c} (eq : e1 = e1) : eq = eq_refl :=
+  uipER eq_refl := eq_refl.
+
+(* derive wellfounded subterm relation for wf recursion *)
+
+Derive Signature Subterm for ER.
 
 (* the type of all equivalence relations on {0,...,n-1} becomes: *)
 
 Definition EqR (n : nat) : Type := { c : nat & ER n c }.
 
-(* ... *)
+(* the embedding of ER n c in EqR n *)
 
-Notation "'{|' x ';' p '|}'" := (existT _ x p).
+Definition erEqr {n c : nat} (e : ER n c) : EqR n := {| c ; e |}.
 
-Definition toEqr {n c : nat} (e : ER n c) : EqR n := {| c ; e |}.
 
-(** special equivalences **)
+(** special equivalence relations **)
 
 (* the identity relation *)
 
-Equations idRel {n : nat} : ER n n :=
-idRel {n:=O}     := EREmpty;
-idRel {n:=(S m)} := ERNew idRel.
+Equations idER {n : nat} : ER n n :=
+  idER {n:=O}     := #;
+  idER {n:=(S m)} := idER <*.
 
-(* Note: an analogue of Lemma EqRF.idRelStructure is auto-generated
-   as idRel_equation_2  *)
-
-(* test computation
-Eval compute in (erMap (@idRel 5)).
-*)
-
-Definition idEqr {n : nat} : EqR n := {| n ; idRel |}.
+Definition idEqr {n : nat} : EqR n := {| n ; idER |}.
 
 (* the all relation *)
 
-Equations allRel {n : nat} : ER (S n) 1 :=
-allRel {n:=O}     := ERNew EREmpty;
-allRel {n:=(S m)} := ERPut F1 allRel.
+Equations allER {n : nat} : ER (S n) 1 :=
+  allER {n:=O}     := # <*;
+  allER {n:=(S m)} := allER << F1.
 
 Equations allEqr {n : nat} : EqR n := 
-allEqr {n:=0}     := {| 0 ; EREmpty |};
-allEqr {n:=(S _)} := {| 1 ; allRel  |}.
+  allEqr {n:=0}     := {| 0 ; # |};
+  allEqr {n:=(S _)} := {| 1 ; allER  |}.
 
 
 (** elementary properties of ER **)
@@ -84,229 +85,400 @@ allEqr {n:=(S _)} := {| 1 ; allRel  |}.
 (* any element of ER 0 0 is equal to EREmpty *)
 
 Equations er00Empty (e : ER 0 0) : e = # :=
-er00Empty # := eq_refl.
+  er00Empty # := eq_refl.
 
 (* if ER n c is inhabited, c <= n *)
 
 Equations erCLeN {n c : nat} (e : ER n c) : c <= n :=
-erCLeN  EREmpty     := @le_n 0;
-erCLeN (ERNew e')   := leNS (erCLeN e');
-erCLeN (ERPut t e') := le_S _ _ (erCLeN e').
+  erCLeN  #          := @le_n 0;
+  erCLeN (ERNew e)   := leNS (erCLeN e);
+  erCLeN (ERPut t e) := le_S _ _ (erCLeN e).
 
-(* idRel n is the only element of ER n n *)
+(* idER n is the only element of ER n n *)
 
-Equations ernnIdRel {n : nat} (e : ER n n) : e = idRel :=
-ernnIdRel {n:=0}      EREmpty     := eq_refl;
-ernnIdRel {n:=(S _)} (ERNew e')   := f_equal ERNew (ernnIdRel e');
-ernnIdRel {n:=(S _)} (ERPut t e') := False_rect _ (nleSuccDiagL _ (erCLeN e')).
+Equations ernnIdER {n : nat} (e : ER n n) : e = idER :=
+  ernnIdER  e by rec (signature_pack e) ER_subterm :=
+  ernnIdER  #          := eq_refl;
+  ernnIdER (ERNew e)   := f_equal ERNew (ernnIdER e);
+  ernnIdER (ERPut t e) := False_rect _ (nleSuccDiagL _ (erCLeN e)).
 
-(* any equivalence relation with exactly 1 class is allRel *)
+(* any equivalence relation with exactly 1 class is allER *)
 
-Equations ern1AllRel {n : nat} (e : ER (S n) 1) : e = allRel :=
-ern1AllRel {n:=0}      (ERNew EREmpty)     := eq_refl;
-ern1AllRel {n:=(S _)}  (ERNew (ERPut t _)) :=! t;
-ern1AllRel {n:=(S _)}  (ERPut F1 e1)       := f_equal (ERPut F1) (ern1AllRel e1).
+Equations ern1AllER {n : nat} (e : ER (S n) 1) : e = allER :=
+  ern1AllER {n:=0}     (ERNew #)           :=  eq_refl;
+  ern1AllER {n:=(S _)} (ERNew (ERPut t _)) :=! t;
+  ern1AllER {n:=(S _)} (ERPut F1 e)        :=  f_equal (ERPut F1) (ern1AllER e).
+
 
 (** elementary properties of Eqr **)
 
+(* the only element in EqR 0 is idEqr ( which is {| 0 ; # |}) *)
+
 Equations eqr0Id (e : EqR 0) : e = idEqr :=
-eqr0Id (existT 0 EREmpty) := eq_refl.
+  eqr0Id {| 0 ; # |} := eq_refl.
 
 
 (** erMap **)
 
 (* erMap e is the Vector of length n, with the class of the ith element
    of Fin.t n w.r.t. e at the ith position. I.e., it is the tabulation
-   of the map sending an element to its equivalence class. *)
+   of the map sending an element to its equivalence class.
+
+   ER is build by adding the last element of a Fin, so we have to use
+   FL, FU and shiftin (alias snoc) instead of F1, FS and cons. *)
 
 Equations erMap {n c : nat} (e : ER n c) : Vector.t (Fin.t c) n :=
-erMap  #           := nil;
-erMap (ERNew e')   := shiftin (FL _) (map FU (erMap e'));
-erMap (ERPut t e') := shiftin t              (erMap e').
+  erMap  #          := [];
+  erMap (ERNew e)   := shiftin (FL _) (map FU (erMap e));
+  erMap (ERPut t e) := shiftin  t             (erMap e).
 
-Notation "e '@@' t" := (Vector.nth (erMap e) t) (at level 5).
+Notation "e '@v' t" := (Vector.nth (erMap e) t) 
+                       (at level 61, right associativity).
 
-(* test computations
-Eval compute in (erMap (# <* << F1 <* << F2 << F1)).
-(* representation of [[1,2,5],[3,4,9],[6,8],[7]] *)
-Eval compute in
-    (erMap (# <* << F1 <* << F2 << F1 <* <* << F3 << F2)).
-(*  [[1],[2,4],[3,5,6]] *)
-Eval compute in (erMap (# <* <* <* << F2 << F3 << F3)).
-*)
-
-(* computation lemmata for @@ *)
+(* computation lemmata for @v *)
 
 Definition erMapNewLast {n c : nat} (e : ER n c) :
-           (ERNew e) @@ (FL n) = FL c.
-Proof.
-  apply shiftinLast.
-Defined.
+                        (e <*) @v FL n = FL c.
+Proof. apply shiftinLast. Defined.
 
-Definition erMapNewPrevious {n c : nat} (e : ER n c) (t : Fin.t n) :
-           (ERNew e) @@ (FU t) = FU (e @@ t).
-Proof.
-  replace ((ERNew e) @@ (FU t)) with
-          (nth (shiftin (FL c) (map FU (erMap e))) (FU t)) 
-           by trivial.
-  rewrite (shiftinPrevious (FL c) (map FU (erMap e)) t).
-  apply nthMapLemma.
-Defined.
+Definition erMapNewPrevious {n c : nat} (e : ER n c) (y : Fin.t n) :
+                            (e <*) @v FU y = FU (e @v y).
+Proof. rewrite shiftinPrevious; apply nthMapLemma. Defined.
 
-Definition erMapPutLast {n c : nat} (e : ER n c) (x : Fin.t c) :
-           (ERPut x e) @@ (FL n) = x.
-Proof.
-  apply shiftinLast.
-Defined.
+Definition erMapPutLast {n c : nat} (e : ER n c) (t : Fin.t c) :
+                        (e << t) @v (FL n) = t.
+Proof. apply shiftinLast. Defined.
 
 Definition erMapPutPrevious {n c : nat} (e : ER n c)
-                            (x : Fin.t c) (t : Fin.t n) :
-           (ERPut x e) @@ (FU t) = (e @@ t).
+                            (t : Fin.t c) (y : Fin.t n) :
+                            (e << t) @v (FU y) = (e @v y).
+Proof. apply shiftinPrevious. Defined.
+
+Ltac erMapRewrites := try repeat
+   (rewrite erMapNewLast     ||
+    rewrite erMapNewPrevious ||
+    rewrite erMapPutLast     ||
+    rewrite erMapPutPrevious).
+
+
+(** properties of @v **)
+
+(* erMap of idER is the identity *)
+
+Equations(noind) idERId {n : nat} (x : Fin.t n) : idER @v x = x :=
+  idERId {n:=0}     x :=! x;
+  idERId {n:=(S _)} x with finFUOrFL x := {
+                      | (inl {| y ; eq |}) (* x = FU y *) :=
+                         idER @v x      ={ f_equal _ eq }=
+                         idER @v (FU y) ={ erMapNewPrevious idER y }=
+                         FU (idER @v y) ={ f_equal FU (idERId y) }=
+                         FU y           ={ eq_sym eq }=
+                         x              QED;
+                      | (inr eq) (* x = FL _ *) :=
+                         idER @v x      ={ f_equal _ eq }=
+                         idER @v (FL _) ={ erMapNewLast idER }=
+                         FL _           ={ eq_sym eq }=
+                         x              QED}.
+
+
+(** erSection **)
+
+(* erSection e maps each class to its smallest representative *)
+
+Equations erSection {n c : nat} (e : ER n c) : Vector.t (Fin.t n) c :=
+  erSection  #           := [];
+  erSection (ERNew e')   := shiftin (FL _) (map FU (erSection e'));
+  erSection (ERPut _ e') :=                (map FU (erSection e')).
+
+Notation "e '@^' cl" := (Vector.nth (erSection e) cl)
+                        (at level 61, right associativity).
+
+(* computation lemmata for @^ *)
+
+Definition erSectionNewLast {n c : nat} (e : ER n c) :
+                            (e <*) @^ (FL c) = FL n.
+Proof. apply shiftinLast. Defined.
+
+Definition erSectionNewPrevious {n c : nat} (e : ER n c) (y : Fin.t c) :
+                                (e <*) @^ (FU y) = FU (e @^ y).
+Proof. rewrite shiftinPrevious; apply nthMapLemma. Defined.
+
+Definition erSectionPut {n c : nat} (e : ER n c) (t x : Fin.t c) :
+                        (e << t) @^ x = FU (e @^ x).
+Proof. apply nthMapLemma. Defined.
+
+Ltac erSectionRewrites := try repeat
+   (rewrite erSectionNewLast     ||
+    rewrite erSectionNewPrevious ||
+    rewrite erSectionPut).
+
+Ltac erRewrites := try repeat (erMapRewrites || erSectionRewrites).
+
+(* [erSection e] is a section of [erMap e] *)
+
+Lemma erSectionIsSection {n c : nat} (e : ER n c) (y : Fin.t c) :
+                          e @v e @^ y = y.
 Proof.
-  replace ((ERPut x e) @@ (FU t)) with
-          (nth (shiftin x (erMap e)) (FU t)) 
-          by trivial.
-  apply (shiftinPrevious x (erMap e) t).
+  induction e.
+  - apply (Fin.case0 _ y).
+  - destruct (finFUOrFL y) as [[y' eq]|eq]; rewrite eq; erRewrites.
+    + apply f_equal. apply IHe.
+    + reflexivity.
+  - erRewrites.
+    apply IHe.
 Defined.
 
-(* erMap of idRel is the identity *)
+(* thus it is injective *)
 
-Equations(noind) idRelId {n : nat} (x : Fin.t n) : idRel @@ x = x :=
-idRelId {n:=0}     x :=! x;
-idRelId {n:=(S _)} x with finFUOrFL x := {
-                     | (inl (existT y eq (* x = FU y *))) :=
-                       (* idRel @@ x *) (eq_trans
-                         (f_equal _ eq)
-                       (* idRel @@ (FU y) *) (eq_trans
-                         (erMapNewPrevious idRel y)
-                       (* FU (idRel @@ y) *) (eq_trans
-                         (f_equal FU (idRelId y))
-                       (* FU y *)
-                         (eq_sym eq))));
-                     | (inr eq) (* x = FL _ *) := 
-                       (* idRel @@ x *) (eq_trans
-                         (f_equal _ eq)
-                       (* idRel @@ (FL n') *) (eq_trans
-                         (erMapNewLast idRel)
-                       (* FL n' *)
-                         (eq_sym eq)))}.
+Lemma erSectionIsInjective {n c : nat} (e : ER n c) (y1 y2 : Fin.t c)
+                           (eq : e @^ y1 = e @^ y2) : 
+                            y1 = y2.
+Proof.
+  pose (f_equal (fun y => e @v y) eq) as eq'; simpl in eq'.
+  repeat rewrite erSectionIsSection in eq'.
+  exact eq'.
+Defined.
+
+(** erClassMin **)
+
+(* [erMap e] followed by [erSection e] maps any element to the smalles element 
+   in its equivalence class *)
+
+Definition erClassMin {n c : nat} (e : ER n c) :
+                       Vector.t (Fin.t n) n :=
+  Vector.map (fun x => e @^ x) (erMap e).
+
+Notation "e '@<' x" := (Vector.nth (erClassMin e) x) 
+                       (at level 61, right associativity).
+
+(* erClassMin is erMap followed by erSection *)
+
+Lemma erClassMinExpand {n c : nat} (e : ER n c) (x : Fin.t n) :
+                       e @< x = e @^ e @v x.
+Proof. apply nthMapLemma. Defined.
+
+(* "e @<" is idempotent *) 
+
+Lemma erClassMinIsIdempotent {n c : nat} (e : ER n c) (x : Fin.t n) :
+                              e @< e @< x = e @< x.
+Proof.
+  repeat rewrite erClassMinExpand.
+  rewrite erSectionIsSection.
+  reflexivity.
+Defined.
+
+(* computation lemmata for @< *)
+
+Ltac erSimplify := try repeat 
+   (rewrite erClassMinIsIdempotent ||
+    rewrite erClassMinExpand       ||
+    rewrite erSectionIsSection     ||
+    apply   erSectionIsInjective   ||
+    erRewrites                     ||
+    trivial).
+
+Lemma erClassMinNewLast {n c : nat} (e : ER n c) :
+                        (e <*) @< (FL n) = FL n.
+Proof. erSimplify. Defined.
+
+Lemma erClassMinNewPrevious {n c : nat} (e : ER n c) (y : Fin.t n) :
+                            (e <*) @< (FU y) = FU ( e @< y ).
+Proof. erSimplify. Defined.
+
+Lemma erClassMinPutLast {n c : nat} (e : ER n c) (t : Fin.t c) :
+                        (e << t) @< (FL n) = FU (e @^ t).
+Proof. erSimplify. Defined.
+
+Lemma erClassMinPutPrevious {n c : nat} (e : ER n c) (t : Fin.t c) (x : Fin.t n) :
+                            (e << t) @< (FU x) = FU (e @< x).
+Proof. erSimplify. Defined.
+
+Ltac erSimplify2 := try repeat
+  (rewrite erClassMinNewLast      ||
+   rewrite erClassMinNewPrevious  ||
+   rewrite erClassMinPutLast      ||
+   rewrite erClassMinPutPrevious  ||
+   (* have to put also these here ...*)
+   rewrite shiftinPrevious        ||
+   rewrite shiftinLast            ||
+   rewrite nthMapLemma            ||
+   erSimplify).
+
+Obligation Tactic := program_simpl; erSimplify2.
+
+(** eqrClassMin **)
+
+(* the result type of erClassMin is not dependent on c, so we can define *)
+
+Definition eqrClassMin {n : nat} (e : EqR n) :
+                        Vector.t (Fin.t n) n :=
+  erClassMin (e.2).
+
+Notation "e '@@' x" := (Vector.nth (eqrClassMin e) x)
+                       (at level 61, right associativity).
+
+(* trivial computation lemma for @@ *)
+
+Lemma eqrClassMinCompute {n c : nat} (e : ER n c) (x : Fin.t n) :
+                         {| c ; e |} @@ x = e @< x.
+Proof. trivial. Defined.
+
+(* "e @@" is idempotent *)
+
+Lemma eqrClassMinIsIdempotent {n : nat} (e : EqR n) (x : Fin.t n) :
+                               e @@ e @@ x = e @@ x.
+Proof.
+  destruct e as [c e].
+  repeat rewrite eqrClassMinCompute.
+  apply erClassMinIsIdempotent.
+Defined.
+
+Ltac erSimplify3 := try repeat
+    (rewrite eqrClassMinIsIdempotent  ||
+     rewrite eqrClassMinCompute       ||
+     erSimplify2).
+
+Obligation Tactic := program_simpl; erSimplify3.
+
 
 (** composition **)
 
-Equations erCompose {n c d: nat} (e1 : ER n c) (e2 : ER c d) : ER n d :=
-erCompose {n:=0}      EREmpty       EREmpty       :=  EREmpty;
-erCompose {n:=(S _)} (ERNew e1')   (ERNew e2')    := (ERNew (erCompose e1' e2'));
-erCompose {n:=(S _)} (ERNew e1')   (ERPut t2 e2') := (ERPut t2 (erCompose e1' e2'));
-erCompose {n:=(S _)} (ERPut t1 e1') e2            := (ERPut (e2 @@ t1) (erCompose e1' e2)).
+Equations erCompose {n c d: nat} (e1 : ER n c) (e2 : ER c d) :
+                     ER n d :=
+  erCompose  #             #            :=  #;
+  erCompose (ERNew e1)    (ERNew e2)    := (erCompose e1 e2) <* ;
+  erCompose (ERNew e1)    (ERPut t2 e2) := (erCompose e1 e2) << t2;
+  erCompose (ERPut t1 e1)  e2           := (erCompose e1 e2) << (e2 @v t1).
 
-(* Lemmata erComposeNN, ~NP and ~P are autogenerated as 
-   erCompose_equation_2, ~_3, ~_4  *)
-
-Notation  "e1 '**' e2" := (@erCompose _ _ _ e1 e2) 
-                         (at level 60, right associativity).
-
-(* example computation
-Eval compute in ((# <* << F1 <* << F2 <* ) ** (# <* <* << F2)).
-*)
+Notation  "e1 '**' e2" := (@erCompose _ _ _ e1 e2)
+                          (at level 60, right associativity).
 
 
-(* idRel is left and right unit for ** *)
+(** properties of erCompose **)
 
-Equations idRelLeft1 {n c : nat} (e : ER n c) : idRel ** e = e :=
-idRelLeft1 {n:=0}      EREmpty     :=  eq_refl;
-idRelLeft1 {n:=(S _)} (ERNew e')   := (f_equal ERNew (idRelLeft1 e'));
-idRelLeft1 {n:=(S _)} (ERPut t e') := (f_equal (ERPut t) (idRelLeft1 e')).
+(* idER is left unit for ** *)
 
-Equations idRelRight1 {n c : nat} (e : ER n c) : e ** idRel = e :=
-idRelRight1 {n:=0}      EREmpty     :=  eq_refl;
-idRelRight1 {n:=(S _)} (ERNew e')   := (f_equal ERNew (idRelRight1 e'));
-idRelRight1 {n:=(S _)} (ERPut t e') :=
-             (* (e' << t) ** idRel *) (eq_trans
-                (erCompose_equation_4 _ _ _ _ _ _)
-             (* (e' ** idRel) << (idRel @@ t) *) (eq_trans
-                (f_equal (fun t' => (ERPut t' (e' ** idRel))) (idRelId t (* idRel @@ t = t *)))
-             (* (e' ** idRel) << t *)
-                (f_equal (ERPut t) (idRelRight1 e' (* e' ** idRel = e' *)))
-             (* (e' << t) *) )).
+Equations idERLeft1 {n c : nat} (e : ER n c) :
+                     idER ** e = e :=
+  idERLeft1   #          :=  eq_refl;
+  idERLeft1  (ERNew e)   := (f_equal ERNew (idERLeft1 e));
+  idERLeft1  (ERPut t e) := (f_equal (ERPut t) (idERLeft1 e)).
 
-(* postcomposing with allRell maps to allRel *)
+(* idER is right unit for ** *)
 
-Definition allRelRight {n d : nat} (e : ER (S n) (S d)) : e ** allRel = allRel.
-Proof.
-  apply ern1AllRel.
-Defined.
+Equations idERRight1 {n c : nat} (e : ER n c) :
+                      e ** idER = e :=
+idERRight1  #          :=  eq_refl;
+idERRight1 (ERNew e)   := (f_equal ERNew (idERRight1 e));
+idERRight1 (ERPut t e) := 
+  (e << t) ** idER
+     ={ erCompose_equation_4 _ _ _ _ _ _ }=
+  (e ** idER) << (idER @@ t)
+     ={ f_equal (fun t' => (e ** idER) << t' ) (idERId t) }=
+  (e ** idER) << t 
+     ={ f_equal (ERPut t) (idERRight1 e ) }=
+  (e << t) QED.
+
+(* postcomposing with allER maps to allER *)
+
+Definition allERRight {n d : nat} (e : ER (S n) (S d)) :
+                       e ** allER = allER.
+Proof. apply ern1AllER. Defined.
+
+
 
 (* erMap of "e1 ** e2" is composition of erMaps *)
 
-Ltac erRewrites0 :=
-  try repeat  (rewrite erMapNewPrevious) ||
-              (rewrite erMapNewLast)     ||
-              (rewrite erMapPutPrevious) ||
-              (rewrite erMapPutLast)     || trivial.
-
-Obligation Tactic := program_simpl; erRewrites0.
 
 Equations(noind) erMapCompose {n m l : nat} (e1 : ER n m) (e2 : ER m l) 
-                       (x : Fin.t n) :
-                       (e1 ** e2) @@ x = e2 @@ (e1 @@ x) :=
-erMapCompose {n:=0}     _  _  x                :=! x;
-erMapCompose {n:=(S _)} e1 e2 x with finFUOrFL x := {
-  erMapCompose {n:=(S _)} (ERNew e1')    (ERNew e2')    x (inl {| y ; eq |}) 
-                                        with erMapCompose e1' e2' y := { | IH := _};
-  erMapCompose {n:=(S _)} (ERNew e1')    (ERNew e2')    x (inr eq)            := _;
-  erMapCompose {n:=(S _)} (ERNew e1')    (ERPut t2 e2') x (inl {| y ; eq|} )  := _;
-  erMapCompose {n:=(S _)} (ERNew e1')    (ERPut t2 e2') x (inr eq)            := _;
-  erMapCompose {n:=(S _)} (ERPut t1 e1')  e2            x (inl {| y ; eq |})  := _;
-  erMapCompose {n:=(S _)} (ERPut t1 e1')  e2            x (inr eq)            := _}.
-Next Obligation.
-  rewrite IH. trivial.
-Defined.
+                              (x : Fin.t n) :
+                              (e1 ** e2) @v x = e2 @v (e1 @v x) :=
+  erMapCompose  e1 e2 x by rec (signature_pack e1) ER_subterm :=
+  erMapCompose  #            #             x                  :=! x;
+  erMapCompose (ERNew e1)   (ERNew e2)     x with finFUOrFL x := {
+               | (inl {| y ; eq |}) with erMapCompose e1 e2 y := { | IH := _};
+               | (inr eq) := _};
+  erMapCompose (ERNew e1)   (ERPut t2 e2)  x with finFUOrFL x := {
+               | (inl {| y ; eq |}) with erMapCompose e1 e2 y := { | IH := _};
+               | (inr eq) := _};
+  erMapCompose (ERPut t1 e1) e2            x with finFUOrFL x := {
+               | (inl {| y ; eq |}) with erMapCompose e1 e2 y := { | IH := _};
+               | (inr eq) := _}.
+Next Obligation. rewrite IH. reflexivity. Defined.
 
-Obligation Tactic := program_simpl.
 
-(* composition is associative *)
+(* erSection of "e1 ** e2" is composition of erSections *)
+
+Equations(noind) erSectionCompose {n m l : nat} (e1 : ER n m) (e2 : ER m l) 
+                                  (x : Fin.t l) :
+                                  (e1 ** e2) @^ x = e1 @^ (e2 @^ x) :=
+  erSectionCompose  e1 e2 x by rec (signature_pack e1) ER_subterm :=
+  erSectionCompose  #           #         x                  :=! x;
+  erSectionCompose (ERNew e1)  (ERNew e2) x with finFUOrFL x := {
+                   | (inl {| y ; eq |}) 
+                      with erSectionCompose e1 e2 y := { | IH := _ };
+                   | (inr eq) := _};
+  erSectionCompose (ERNew e1)  (ERPut _ e2) x
+                      with erSectionCompose e1 e2 x := { | IH := _ };
+  erSectionCompose (ERPut _ e1) e2        x
+                      with erSectionCompose e1 e2 x := { | IH := _ }.
+Next Obligation. rewrite IH. reflexivity. Defined.
+Next Obligation. rewrite IH. reflexivity. Defined.
+Next Obligation. rewrite IH. reflexivity. Defined.
+
+Ltac erSimplify4 := try repeat
+  (rewrite erMapCompose     ||
+   rewrite erSectionCompose ||
+   erSimplify3).
+
+
+(* [**] is associative *)
 
 Lemma erComposeAssociative {n m l k : nat}
-      (e1 : ER n m) (e2 : ER m l) (e3 : ER l k) :
-      (e1 ** e2) ** e3 = e1 ** e2 ** e3.
+                           (e1 : ER n m) (e2 : ER m l) (e3 : ER l k) :
+                           (e1 ** e2) ** e3 = e1 ** e2 ** e3.
 Proof.
   funelim (e1 ** e2).
-  - funelim (EREmpty ** e3). trivial.
-  - funelim (ERNew (e ** e0) ** e3).
-    + repeat (rewrite erCompose_equation_2).
-      rewrite H1. trivial.
-    + repeat (rewrite erCompose_equation_3).
-      rewrite H1. trivial.
+  - funelim (# ** e3). reflexivity.
+  - funelim (((e ** e0) <*) ** e3); clear H H0.
+    + repeat (rewrite erCompose_equation_2). rewrite H1. trivial.
+    + repeat (rewrite erCompose_equation_3). rewrite H1. trivial.
   - repeat (rewrite erCompose_equation_4).
-    rewrite erCompose_equation_3.
-    rewrite H. trivial.
+    rewrite erCompose_equation_3. rewrite H. trivial.
   - repeat (rewrite erCompose_equation_4).
     rewrite H. rewrite erMapCompose. trivial.
 Defined.
 
 
-
 (** containment **)
 
-Definition erContains {n m l : nat} (f: ER n m) (e: ER n l) : Type :=
-           { d : ER m l | f ** d = e }.
+(* f is contained in e
+   iff any equivalence class of f is contained in an equivalence class of e,
+   iff the classes of e are unions of certain classes of f,
+   iff there is an equivalence on the set of classes of f s.t. the union of
+       all classes of f in a class of this equivalence is a class of e,
+   iff there exists d such that  f ** d = e  *)
+
+Definition erContains {n m l : nat} (f: ER n m) (e: ER n l) :
+                       Type := { d : ER m l & f ** d = e }.
 
 Notation "f '[='  e" := (erContains f e) (at level 50).
 
-Definition eqrContains {n : nat} (f e : EqR n) : Type :=
-      (projT2 f) [= (projT2 e).
+Definition eqrContains {n : nat} (f e : EqR n) : Type := f.2 [= e.2.
 
 Notation "e 'C='  f" := (eqrContains e f) (at level 50).
 
+(** properties of [= and C= **)
 
 (* [= is Reflexive and Transitive *)
 
-Definition erContainsReflexive {n m : nat} (e : ER n m) : e [= e :=
-           (exist _ idRel  (idRelRight1 e)).
+Definition erContainsReflexive {n m : nat} (e : ER n m) : 
+                               e [= e := 
+  {| idER ; (idERRight1 e) |}.
 
-Definition erContainsTransitive {n c1 c2 c3 : nat}
-           (e1 : ER n c1) (e2 : ER n c2) (e3 : ER n c3) :
-           (e1 [= e2) -> (e2 [= e3) -> (e1 [= e3).
+Definition erContainsTransitive {n c1 c2 c3 : nat} (e1 : ER n c1) 
+                                (e2 : ER n c2) (e3 : ER n c3) :
+                                (e1 [= e2) -> (e2 [= e3) -> (e1 [= e3).
 Proof.
   intros [d1 eq1] [d2 eq2].
   exists (d1 ** d2).
@@ -317,162 +489,262 @@ Defined.
 
 (* C=  is a partial order (reflexive, transitive and antisymmetric) *)
 
-Definition eqrContainsReflexive {n : nat} (e : EqR n) : e C= e :=
-           erContainsReflexive (projT2 e).
+Definition eqrContainsReflexive {n : nat} (e : EqR n) : 
+                                 e C= e := erContainsReflexive e.2.
 
-Definition eqrContainsTransitive {n : nat} 
-           (e1 e2 e3 : EqR n) :
-           (e1 C= e2) -> (e2 C= e3) -> (e1 C= e3).
-Proof.
-  apply erContainsTransitive.
-Defined.
+Definition eqrContainsTransitive {n : nat} (e1 e2 e3 : EqR n) :
+                                 (e1 C= e2) -> (e2 C= e3) -> (e1 C= e3).
+Proof. apply erContainsTransitive. Defined.
 
-Lemma eqrContainsAntiSymmetric {n : nat}
-          (e1 e2 : EqR n) :
-          (e1 C= e2) -> (e2 C= e1) -> e1 = e2.
+Lemma eqrContainsAntiSymmetric {n : nat} (e1 e2 : EqR n) :
+                               (e1 C= e2) -> (e2 C= e1) -> e1 = e2.
 Proof.
-  destruct e1 as [c1 e1].
-  destruct e2 as [c2 e2].
-  unfold "C=". simpl.
-  intros [d1 eq1] [d2 eq2].
-  pose (erCLeN d1) as C2LeC1.
-  pose (erCLeN d2) as C1LeC2.
-  pose (leAntiSymmetric _ _ (conj C1LeC2 C2LeC1)) as eq.
-  destruct eq.
-  pose (ernnIdRel d1) as d1Id.
-  rewrite d1Id in eq1.
-  rewrite (idRelRight1 e1) in eq1.
+  destruct e1 as [c1 e1]; destruct e2 as [c2 e2].
+  intros [d1 eq1] [d2 eq2]; simpl in *.
+  destruct (leAntiSymmetric _ _ (conj (erCLeN d2) (erCLeN d1))).
+  rewrite (ernnIdER d1) in eq1.
+  rewrite (idERRight1 e1) in eq1.
   rewrite eq1.
-  trivial.
+  reflexivity.
 Defined.
 
 (* idEqr is minimal for C= *)
 
-Definition idEqrMin {n : nat} (e : EqR n) : idEqr C= e.
+Definition idEqrMin {n : nat} (e : EqR n) :
+                     idEqr C= e.
 Proof.
-  destruct e as [d e].
-  unfold "C=". simpl.
+  destruct e as [d e]; unfold "C="; simpl.
   exists e.
-  apply idRelLeft1.
+  apply idERLeft1.
 Defined.
 
 (* allEqr is maximal for C= *)
 
-Equations allEqrMax {n : nat} (e : EqR n) : e C= allEqr :=
-allEqrMax {n:=0}     (existT 0 EREmpty)      := eqrContainsReflexive _;
-allEqrMax {n:=(S _)} (existT 0 (ERPut t e1)) :=! t;
-allEqrMax {n:=(S _)} (existT (S _) e1)       := _.
-Next Obligation.
-  unfold "C="; simpl.
-  exists allRel.
-  apply allRelRight.
-Defined.
+Equations allEqrMax {n : nat} (e : EqR n) :
+                     e C= allEqr :=
+  allEqrMax {n:=0}     {| 0 ; # |}      := eqrContainsReflexive _;
+  allEqrMax {n:=(S _)} {| 0 ; _ << t |} :=! t;
+  allEqrMax {n:=(S _)} {|(S _); e |}    := {| allER ; _ |}.
+Next Obligation. apply allERRight. Defined.
 
-(* we probably need characterisation of [= in terms of erMap: *)
 
-(* the decidable equivalence relation on Fin.t n defined by e : EqR *)
+(* The relation on Fin.t n defined by e : EqR is just the kernel of
+   eqrClassMin, i.e. the pullback of equality along eqrClassMin.
+   It is a decidable equivalence on Fin.t n, as equality has this property
+   and pullback preserves it *)
 
-Definition eqrToDecEq {n : nat} (e : EqR n) : DecidableEquivalence (Fin.t n).
+Definition eqrToDecEq {n : nat} (e : EqR n) :
+                       DecidableEquivalence (Fin.t n).
 Proof.
-  destruct e as [c e1].
-  apply (pullbackDecidableEquivalence (fun x => e1 @@ x)).
+  apply (pullbackDecidableEquivalence (fun x => e @@ x)).
   exact eqFinDecidableEquivalence.
 Defined.
 
-Lemma eqrToDecEqPreservesContains {n : nat} (e f : EqR n) 
-                                  (p : e C= f) :
+Notation "x '~(' e ')~' y" := (relationOfDecidableEquivalence (eqrToDecEq e) x y)
+                              (at level 62).
+
+(* needed to shorten proofs *)
+
+Lemma eqrToDecEqCompute {n : nat} (e : EqR n) (x y : Fin.t n) (rel : x ~(e)~ y) :
+                        e @@ x = e @@ y.
+Proof.
+  unfold eqrToDecEq in rel; simpl in rel.
+  unfold pullbackRelation in rel.
+  exact rel.
+Defined.
+
+(* containment is preserved by eqrToDecEq *)
+
+Lemma eqrToDecEqPreservesContains {n : nat} (e f : EqR n) (p : e C= f) :
                                   (eqrToDecEq e) c= (eqrToDecEq f).
 Proof.
   destruct e as [c e], f as [d f].
-  unfold "C=","[=" in p; simpl in p. destruct p as [g eq].
+  destruct p as [g eq].
   unfold "c=", Relations_1.contains, eqrToDecEq,
-         pullbackDecidableEquivalence, pullbackRelation; simpl.
+         pullbackDecidableEquivalence, pullbackRelation; simpl in *.
   intros x y eMapEq.
   repeat rewrite <- eq.
-  repeat rewrite erMapCompose.
+  erSimplify4.
+  repeat rewrite erClassMinExpand in eMapEq; simpl in eMapEq.
+  apply erSectionIsInjective in eMapEq.
   rewrite eMapEq.
   reflexivity.
 Defined.
 
-(* restrict equivalence on n+1 elements to the first n elements *)
-Equations eqrShrink {n : nat} (e : EqR (S n)) : EqR n :=
-eqrShrink {| _ ; (e' <*)|}   := {| _ ; e' |};
-eqrShrink {| _ ; (e' << _)|} := {| _ ; e' |}.
+(* to show that eqrToDec also reflects containment, we first show that
+   (eqrToDecEq e) c= (eqrToDecEq f)  is equivalent to have 
+   (e @@ x) ~(f)~ x  for any x  *)
 
-Equations eqrShrinkPreservesContains {n : nat} (e f : EqR (S n))
-                                     (p : e C= f) : (eqrShrink e) C= (eqrShrink f) :=
-eqrShrinkPreservesContains {| _ ; (e' <*)  |} {| _ ; (f' <*)  |} (exist d eq) := _;
-eqrShrinkPreservesContains {| _ ; (e' <*)  |} {| _ ; (f' << t)|} (exist d eq) := _;
-eqrShrinkPreservesContains {| _ ; (e' << t)|} {| _ ;  f       |} (exist d eq) := _.
+Definition eqrMinMapCondition {n : nat} (e f : EqR n) : Type :=
+  forall (x : Fin.t n), (e @@ x) ~(f)~ x.
+
+Lemma eqrMinMapConditionToEqrToDecEqContains {n : nat} (e f : EqR n) :
+                         eqrMinMapCondition e f ->
+                        (eqrToDecEq e) c= (eqrToDecEq f).
+Proof.
+  destruct e as [k e]. destruct f as [l f].
+  unfold "c=", eqrMinMapCondition, eqrToDecEq; simpl.
+  unfold pullbackRelation, Relations_1.contains; simpl.
+  intros emmc x y eRel;  simpl.
+  rewrite <- (emmc x).
+  rewrite <- (emmc y).
+  rewrite eRel.
+  reflexivity.
+Defined.
+
+Lemma eqrMinMapConditionFromEqrToDecEqContains {n : nat} (e f : EqR n) :
+                        (eqrToDecEq e) c= (eqrToDecEq f) ->
+                        eqrMinMapCondition e f.
+Proof.
+  destruct e as [k e]. destruct f as [l f].
+  unfold "c=", eqrMinMapCondition, eqrToDecEq; simpl.
+  unfold pullbackRelation, Relations_1.contains; simpl.
+  intros ec x.
+  apply (ec ({|k; e|} @@ x) x).
+  apply eqrClassMinIsIdempotent.
+Defined.
+
+(* If e C= f, eqrMinMapCondition e f holds *)
+
+Lemma eqrContainsToEqrMinMapCondition {n : nat} (e f : EqR n) (cont: e C= f) :
+                                      eqrMinMapCondition e f.
+Proof.
+  intro x.
+  destruct n.
+  - apply Fin.case0.
+  - destruct e as [c1 e]. destruct f as [c3 f].
+    destruct cont as [c d]. simpl in *; unfold pullbackRelation.
+    repeat rewrite eqrClassMinCompute.
+    rewrite <- d.
+    erSimplify4.
+Defined.
+
+(* that eqrMinMapCondition e f implies e C= f is a little more difficult *)
+
+(* restrict equivalence on n+1 elements to the first n elements
+   just take the constructor argument of the 2nd component and repack it 
+   needed only to shorten statements *)
+
+Equations eqrShrink {n : nat} (e : EqR (S n)) : 
+                     EqR n :=
+  eqrShrink {|_ ; e <*  |} := {|_ ; e |};
+  eqrShrink {|_ ; e << _|} := {|_ ; e |}.
+
+(* FU ((eqrShrink e) @@ x) = e @@ (FU x) for all x *)
+
+Lemma eqrShrinkClassMin {n : nat} (e : EqR (S n)) (x : Fin.t n) :
+                            FU ((eqrShrink e) @@ x) = e @@ (FU x).
+Proof.
+  destruct e as [k e].
+  dependent induction e.
+  - rewrite eqrShrink_equation_1. apply eq_sym. erSimplify4.
+  - rewrite eqrShrink_equation_2. apply eq_sym. erSimplify4.
+Defined.
+
+Lemma eqrShrinkPreservesEqrMinMapCondition 
+      {n : nat} (e f : EqR (S n)) (emms : eqrMinMapCondition e f) :
+      eqrMinMapCondition (eqrShrink e) (eqrShrink f).
+Proof.
+  unfold eqrMinMapCondition, eqrToDecEq in *; simpl in *;
+  unfold pullbackRelation in *.
+  intro x.
+  apply fuIsInjective.
+  repeat rewrite eqrShrinkClassMin.
+  apply emms.
+Defined.
+
+(* eqrShrink preserves containment *)
+
+Equations eqrShrinkPreservesContains {n : nat} (e f : EqR (S n)) (p : e C= f) :
+                                     (eqrShrink e) C= (eqrShrink f) :=
+  eqrShrinkPreservesContains {|_;_<*|}  {|_;_<* |} {|d<* ;eq|} := {|d;sigmaNat2 _|};
+  eqrShrinkPreservesContains {|_;_<*|}  {|_;_<* |} {|_<<_;eq|} :=! eq;
+  eqrShrinkPreservesContains {|_;_<*|}  {|_;_<<t|} {|_<* ;eq|} :=! eq;
+  eqrShrinkPreservesContains {|_;_<*|}  {|_;_<<t|} {|d<<_;eq|} := {|d;sigmaNat2 _|};
+  eqrShrinkPreservesContains {|_;_<<_|} {|_;_<* |} {|_   ;eq|} :=! eq;
+  eqrShrinkPreservesContains {|_;_<<_|} {|_;_<<_|} {|d   ;eq|} := {|d;sigmaNat2 _|}.
+
+
+(* to prove e C= f, it is enough to have containment of the shrinks and
+   eqrMinMapCondition e f (FL n)  *)
+
+Ltac erSimplifyIn H :=
+   generalize H; erSimplify4; clear H; intro H.
+
+Equations eqrBuildContains {n : nat} (e f :  EqR (S n))
+                          (shrinkCond : (eqrShrink e) C= (eqrShrink f))
+                          (flCond     : f @@ e @@ (FL n) = f @@ (FL n )) : 
+                           e C= f :=
+  eqrBuildContains {|_; e<*   |} {|_; f<*   |} {|c; eq |} _   := {|c<*   ;_|};
+  eqrBuildContains {|_; e<*   |} {|_; f<<t2 |} {|c; eq |} _   := {|c<<t2 ;_|};
+  eqrBuildContains {|_; e<<t1 |} {|_; f<*   |} shrinkC    flC := _;
+  eqrBuildContains {|_; e<<t1 |} {|_; f<<t2 |} {|c; _  |} flC := {|c ;_|}.
 Next Obligation.
+  clear shrinkC.
+  destruct wildcard1.
+  - apply Fin.case0. exact t1.
+  - apply False_rect. generalize flC. erSimplify4.
+    apply finNotFUAndFL.
+Defined.
+Next Obligation.
+  destruct wildcard1.
+  - apply Fin.case0. exact t1.
+  - cut (c @v t1 = t2).
+    + intro eq. rewrite eq. reflexivity.
+    + erSimplifyIn flC.
+      apply fuIsInjective in flC.
+      repeat apply erSectionIsInjective in flC.
+      exact flC.
+Defined.
 
-(*
-Lemma eqrToDecEqReflectsContains {n : nat} (e f : EqR n) 
-                                 (p : (eqrToDecEq e) c= (eqrToDecEq f)) :
-                                 e C= f.
+(* so, finally *)
+
+Lemma eqrContainsFromEqrMinMapCondition {n : nat} (e f : EqR n)
+                                           (emmc : eqrMinMapCondition e f) :
+                                           e C= f.
 Proof.
   induction n.
   - rewrite (eqr0Id e). apply idEqrMin.
-  - destruct e as [c e], f as [d f].
-    unfold "c=", Relations_1.contains, eqrToDecEq,
-         pullbackDecidableEquivalence, pullbackRelation in p; simpl in p.
-    induction d.
-    + apply Fin.case0. exact (f @@ F1).
-    +     ... try with Equations...
-    unfold "C=","[="; simpl.
-  induction n.
-  - pose (eqr0Id {| c ; e |}) as eq.
-    pose (f_equal projT1 eq).
-*)
+  - apply eqrBuildContains.
+    + apply IHn.
+      apply eqrShrinkPreservesEqrMinMapCondition.
+      exact emmc.
+    + apply emmc.
+Defined.
 
-Equations test1 {n m l : nat} (f : ER (S n) m) ( e : ER n l) 
-                (co1 : f [= (e <*)) : { m' : nat & {f' : ER n m' & ((f = (f' <*)) * f' [= e)%type }} :=
-test1 _ _ _ := _.
-test1 {n:=0}     {m:=0}     {l:=0}     # # _  := (exist _ # eq_refl);
-test1 {n:=(S _)} {m:=0}                f _  _ :=! f;
-test1 {n:=(S _)}             {l:=0}     _ e  _ :=! e;
-test1 {n:=(S _)} {m:=(S _)} {l:=(S _)} f e (exist (ERNew d') eq) := _;
-test1 {n:=(S _)} {m:=(S _)} {l:=(S _)} f e (exist (ERPut t d') eq) := _.
-Next Obligation.
-  admit.
-Admitted.
-Next Obligation.
-  apply False_rect.
-
-
-Lemma erContainsUnique {n m l : nat} (f: ER n m) (e: ER n l)
-         (d1 d2 : f [= e) : d1 = d2.
+Lemma eqrToDecEqReflectsContains {n : nat} (e f : EqR n)
+                                 (etdeCont : (eqrToDecEq e) c= (eqrToDecEq f)) :
+                                 e C= f.
 Proof.
-  destruct d1 as [d1 eq1].
-  destruct d2 as [d2 eq2].
-  destruct eq2.
-  destruct eq1.
-...?
-*)
+  apply eqrContainsFromEqrMinMapCondition.
+  apply eqrMinMapConditionFromEqrToDecEqContains.
+  exact etdeCont.
+Defined.
 
 
 (* meet *)
 
-Equations eqrMeet (n : nat) (e1 e2 : EqR n) : 
-                   { e : EqR n & ( (e C= e1) * (e C= e2) * 
-                     forall e' : EqR n,
-                        e' C= e1 -> e' C= e2 -> e' C= e)%type } :=
+Equations eqrMeet (n : nat) (e1 e2 : EqR n) :
+                  { e : EqR n & ( (e C= e1) * (e C= e2) * 
+                                   forall e' : EqR n,
+                                          e' C= e1 -> e' C= e2 -> 
+                                          e' C= e )%type } :=
 eqrMeet n e1 e2 by rec n lt :=
-eqrMeet 0     {| _ ; # |}        {| _ ; # |} := _;
-eqrMeet (S _) {| _ ; (e1' <*)|}  {| _ ; (e2' <*)|}
-                            with (eqrMeet _ (toEqr e1') (toEqr e2')) := {
-                               | {| {| d3 ; e3 |} ; (c1,c2,uni) |} := _};
-eqrMeet (S _) (existT _ (ERPut t1 e1'))     (existT _ (ERNew e2'))
-                            with (eqrMeet _ (toEqr e1') (toEqr e2')) := {
-                               | IH := _};
-eqrMeet (S _) (existT _ (ERNew e1'))     (existT _ (ERPut t2 e2'))
-                            with (eqrMeet _ (toEqr e1') (toEqr e2')) := {
-                               | IH := _};
-eqrMeet (S _) (existT _ (ERPut t1 e1'))     (existT _ (ERPut t2 e2'))
-                            with (eqrMeet _ (toEqr e1') (toEqr e2')) := {
-                               | IH := _}.
+eqrMeet 0     {|_; #    |}  {|_; #    |} := {| {|0;#|} ; _ |};
+eqrMeet (S _) {|_; e1<* |}  {|_; e2<* |}  with (eqrMeet _ {|_;e1|} {|_;e2|}) := {
+                                         | {| {| d3 ; e3 |} ; (c1,c2,uni) |} :=
+                                           {| {|_; e3 <* |}; _ |}  };
+eqrMeet (S _) {|_; e1<<t1|} {|_; e2<* |}  with (eqrMeet _ {|_;e1|} {|_;e2|}) := {
+                                         | {| {| d3 ; e3 |} ; (c1,c2,uni) |} :=
+                                           {| {|_; e3 <* |}; _ |}  };
+eqrMeet (S _) {|_; e1<* |}  {|_; e2<<t2|} with (eqrMeet _ {|_;e1|} {|_;e2|}) := {
+                                         | {| {| d3 ; e3 |} ; (c1,c2,uni) |} :=
+                                           {| {|_; e3 <* |}; _ |}  };
+eqrMeet (S _) {|_; e1<<t1|} {|_; e2<<t2|} with (eqrMeet _ {|_;e1|} {|_;e2|}) := {
+                                         | {| {| d3 ; e3 |} ; (c1,c2,uni) |} :=
+                                           {| {|_; e3 << _ |}; _ |}  }.
 Next Obligation.
-  exists idEqr. split.
+  split.
   - split; exact (idEqrMin _).
   - intro e'. cut (e' = idEqr).
     + intros eq _ _. rewrite eq. apply idEqrMin.
@@ -480,14 +752,33 @@ Next Obligation.
 Defined.
 Next Obligation.
   clear eqrMeet.
-  exists {| (S d3) ; (e3 <*) |}. 
-  unfold "C=" in *; simpl in *; repeat split.
-  + unfold "[=" in c1. destruct c1 as [d eq].
-    exists (d <*). rewrite erCompose_equation_2. rewrite eq. reflexivity.
-  + unfold "[=" in c2. destruct c2 as [d eq].
-    exists (d <*). rewrite erCompose_equation_2. rewrite eq. reflexivity.
-  + intros [d e'']; simpl. unfold "[="; intros [d1 eq1] [d2 eq2].
-    induction e''.
+  split.
+  - split; apply eqrBuildContains.
+    + exact c1.
+    + erSimplify4.
+    + exact c2.
+    + erSimplify4.
+  - intros e4 e4In1 e4In2.
+    apply eqrBuildContains.
+    + exact (uni (eqrShrink e4) (eqrShrinkPreservesContains _ _ e4In1)
+                                (eqrShrinkPreservesContains _ _ e4In2)).
+    + destruct e4 as [d4 e4]. repeat rewrite eqrClassMinCompute.
+      cut (e4 @< FL _ = FL _).
+      * intro eq; rewrite eq; reflexivity.
+      * { dependent destruction e4.
+          - apply erClassMinNewLast.
+          - destruct c.
+            + apply Fin.case0. exact t.
+            + apply False_rect.
+              pose (eqrContainsToEqrMinMapCondition _ _ e4In1 (FL _)).
+              rewrite eqrClassMinCompute in r.
+              unfold eqrToDecEq, relationOfDecidableEquivalence,
+                     pullbackDecidableEquivalence, pullbackRelation in r; simpl in r.
+              erSimplifyIn r.
+              apply (finNotFUAndFL _ r).
+         }
+Defined.
+
 
 (* subsets ... 1st attempt *)
 

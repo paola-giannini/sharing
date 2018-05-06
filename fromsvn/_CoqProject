@@ -7,9 +7,12 @@
 ./Evaluation.v
 ./FJ_Definitions.v
 ./FinVectorMisc.v
-./TypedLanguage.v
+./GarbageElimination.v
 ./Metatheory.v
 ./NatMisc.v
+./NotationsMisc.v
 ./Perm.v
 ./SharingRelation.v
-./GarbageElimination.v
+./SigmaMisc.v
+./TestComputations.v
+./TypedLanguage.v
