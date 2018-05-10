@@ -2,6 +2,7 @@
 ./AdditionalTactics.v
 ./Atom.v
 ./DecidableEquivalences.v
+./EqR.v
 ./EqRF.v
 ./EqRFE.v
 ./Evaluation.v

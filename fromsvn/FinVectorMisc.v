@@ -51,7 +51,7 @@ Equations FL (n : nat) :
   FL 0     := F1;
   FL (S n) := FS (FL n).
 
-Equations FU {n : nat} (x : Fin.t n) : 
+Equations FU {n : nat} (x : Fin.t n) :
              Fin.t (S n) :=
   FU F1     := F1;
   FU (FS x) := FS (FU x).
