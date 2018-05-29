@@ -1,4 +1,4 @@
-Require Import EqRFE.
+Require Import EqR.
 
 (* for convenience *)
 

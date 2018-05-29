@@ -3,8 +3,6 @@
 ./Atom.v
 ./DecidableEquivalences.v
 ./EqR.v
-./EqRF.v
-./EqRFE.v
 ./Evaluation.v
 ./FJ_Definitions.v
 ./FinVectorMisc.v
@@ -15,5 +13,6 @@
 ./Perm.v
 ./SharingRelation.v
 ./SigmaMisc.v
+./Sub.v
 ./TestComputations.v
 ./TypedLanguage.v
