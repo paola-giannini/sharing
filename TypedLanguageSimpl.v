@@ -4,10 +4,10 @@
  *
  ***************************************************************************)
 
-(** This library contains the definition of the syntax of the language and
-    the typing .
-    The definition is divided up between syntax, auxiliaries, evaluation and
-    typing. *)
+(** printing \in %\ensuremath{\in}% *)
+(** printing \notin %\ensuremath{\notin}% *)
+(** printing == %\ensuremath{\doteq}% *)
+
 
 Require Import Metatheory.
 Require Import SharingRelation.
@@ -17,7 +17,7 @@ Require Export Coq.Lists.ListSet.
 
 (** ** Lexical categories *)
 
-(** Names of variables, fields, classes and numerals are atoms (their equality
+(** Names of variables, fields, methods and classes are atoms (their equality
     is decidable). *)
 
 Definition var   := atom.
@@ -25,6 +25,10 @@ Definition fname := atom.
 Definition cname := atom.
 Definition num   := atom.
 
+
+(** The names [this] and [res] are predefined. We simply assume that these
+    names exist. The metavariable [res] denotes the result of the evaluation
+    of an expression (not part of the source language) *)
 
 
 (** ** Types and term expressions *)
@@ -50,8 +54,7 @@ Inductive decTy : Type :=
    | DTBool : decTy
    | DTCl   : cname -> (option annotation) -> decTy.
 
-(** Extracting types and annotations from declarations. **)
-    
+
 Fixpoint decTy2ty (dt:decTy) : ty :=
    match dt with
    | DTNat    => TNat
@@ -73,7 +76,8 @@ Fixpoint decTy2ann (dt:decTy) : option annotation :=
 Definition blAnnotation := list var.
 
 
-(** The expression forms are boolean and natural constants, variable reference, object creation
+(** The expression forms are (insert?: constants,) variable reference, object creation, 
+    ( method invocation,  - delete? -)
     field access, field update and (possibly annotated) blocks. *)
 
 Inductive exp : Type :=
@@ -81,9 +85,9 @@ Inductive exp : Type :=
    | ETrue  : exp
    | EFalse : exp
    | EVar   : var -> exp
-   | ENew   : cname -> list exp -> exp
-   | EFld   : exp -> fname -> exp
-   | EUpd   : exp -> fname -> exp -> exp
+   | ENew   : cname -> list var -> exp
+   | EFld   : var -> fname -> exp
+   | EUpd   : var -> fname -> var -> exp
    | EBlk   : blAnnotation -> list dec ->  exp -> exp
 
 with dec : Type :=
@@ -110,6 +114,12 @@ Fixpoint dec_es (ds:list dec): (list exp) :=
    | nil              => nil
    | (Dec dt x e)::tl => e::(dec_es tl)
    end.
+
+(** Declarations cannot have more than one occurrence of a variable.  *)
+Inductive ok_decs: list dec -> Prop :=
+  | ok_nil: ok_decs nil
+  | ok_cons: forall dt x e tl, ok_decs tl -> (~ In x (dec_vars tl))  -> ok_decs ((Dec dt x e)::tl).
+
 
 (** [split_dec x ds] partitions the declarations in ds in the ones before and
     after the declaration of x.
@@ -140,22 +150,23 @@ Definition get_dec_in_ds x ds : option dec:=
       | nil => None  
       end.
 
+
 (** [free_var e] returns the set of free variables of e. I had to define the two 
     internal functions (instead of as mutually recursives) otherwise Coq would 
     complain *)
 
 Fixpoint free_var (e: exp): (set var) :=
-   let ed := eq_atom_dec in   
+   let ed := eq_atom_dec in
      match e with
      |(EVar x)        => set_add ed x (@empty_set var)
-     |(ENew C es)     => ((fix free_var_es (es: list exp): (set var) :=
-                          match es with
+     |(ENew C xs)     => ((fix free_var_es (ys: list var): (set var) :=
+                          match ys with
                           | nil => nil
-                          | e::tl => (set_union ed (free_var e) (free_var_es tl))
+                          | y::tl => (set_add ed y (free_var_es tl))
                           end
-                          )  es)
-     |(EFld e1 f)     => free_var e1
-     |(EUpd e1 f e2)  => (set_union ed (free_var e1) (free_var e2)) 
+                          )  xs)
+     |(EFld x f)     => set_add ed x (@empty_set var)
+     |(EUpd x f y)  => set_add ed y (set_add ed x (@empty_set var))  
      |(EBlk ann ds e) => (set_diff ed 
                            (set_union ed 
                              ((fix free_var_ds (ds: list dec): (set var) :=
@@ -170,35 +181,12 @@ Fixpoint free_var (e: exp): (set var) :=
 end.
 
 Fixpoint free_var_es (es: list exp): (set var) :=
-  match es with
-  |nil => nil
-  |e::tl =>(set_union eq_atom_dec (free_var e) (free_var_es tl))
-end.
+   match es with
+   | nil   => nil
+   | e::tl => (set_union eq_atom_dec (free_var e) (free_var_es tl))
+   end.
 
-Fixpoint free_var_ds (ds: list dec): (set var) :=
-   match ds with
-   | nil => nil
-   | (Dec dt x e)::tl => (set_union eq_atom_dec (free_var e) (free_var_ds tl))
-end.
-   
-(** [vars ds] returns the union of the free and declared variables in ds*)
-    
-Fixpoint vars (ds: list dec): (set var) :=
-let ed := eq_atom_dec in
-  match ds with 
-  | nil => (@empty_set var)
-  | (Dec dt y e)::tlds => (set_union ed (free_var e) (y::nil))
-  end.   
 
-(** [blockVars e] if [e] is a block returns the union of the free and declared variables 
-    in [e], if [e] is not a block returns the empty set*)
-    
-Fixpoint blockVars (e:exp): (set var) :=
-let ed := eq_atom_dec in
-  match e with 
-  | (EBlk ann ds eb) => (set_union ed (vars ds) (free_var eb))
-  | _ => (@empty_set var)
-  end.      
 
 (** ** Environments and class tables *)
 
@@ -218,7 +206,7 @@ Definition args := (list (var * decTy)).
 Definition flds := (list (fname * ty)).
 
 
-(** For the moment we do not have inheritance and methods*)
+(* For the moment we do not have inheritance and methods*)
 Definition ctable := (list (cname * flds )).
 
 
@@ -226,6 +214,7 @@ Definition ctable := (list (cname * flds )).
 
 Parameter CT : ctable.
 
+(** * Auxiliaries *)
 
 (** ** Field lookup *)
 
@@ -238,8 +227,9 @@ Inductive fields : cname -> flds -> Prop :=
 Definition field (C : cname) (f : fname) (t : ty) : Prop :=
     exists2 fs, fields C fs & binds f t fs.
 
+(** * Typing *)
 
-(** Help functions for computing the annotation of a block. *)
+(** Help function for computing the annotation of a block. *)
 Fixpoint is_in x xs: bool:=
    match xs with
    | nil    => false
@@ -253,7 +243,7 @@ Fixpoint inter (xs ys: list atom): list atom:=
    end.
 
 
-(** ** Typing of expressions*)
+(** ** Term expression typing *)
 
 (** [typing E e (t, sh)] holds when expression [e] in environment [E] has type [t], and may 
     produce sharing between variables according to the relation [shRel]. Moreover, the 
@@ -273,19 +263,19 @@ Inductive typing : forall E, exp -> (ty * (shRel (dom E)) * exp) -> Prop :=
 | t_var : forall x E C,
     binds x (DTCl C None) E ->
     typing E (EVar x) ((Cl C),(add_eq_res (id_shRel (dom E)) x),(EVar x))
-| t_fld : forall E e eAn shR C t f,
-    typing E e ((Cl C),shR,eAn) ->
+| t_fld : forall E x eAn shR C t f,
+    typing E (EVar x) ((Cl C),shR,eAn) ->
     field C f t ->
-    typing E (EFld e f) (t,shR,(EFld eAn f))
-| t_upd : forall E e0 e1 e0An e1An C t shR0 shR1 f,
-    typing E e0 ((Cl C),shR0,e0An) ->
-    typing E e1 (t,shR1,e1An) ->
+    typing E (EFld x f) (t,shR,(EFld x f))
+| t_upd : forall E x0 x1 e0An e1An C t shR0 shR1 f,
+    typing E (EVar x0) ((Cl C),shR0,e0An) ->
+    typing E (EVar x1) (t,shR1,e1An) ->
     field C f t ->     
-    typing E (EUpd e0 f e1) (t,(add_shr shR0 shR1),(EUpd e0An f e1An)) 
-| t_new : forall E C fs es shR esAn,
+    typing E (EUpd x0 f x1) (t,(add_shr shR0 shR1),(EUpd x0 f x1)) 
+| t_new : forall E C fs xs shR esAn,
     fields C fs ->
-    par_typing E es (imgs fs) (shR,esAn)->
-    typing E (ENew C es) ((Cl C),shR,(ENew C esAn))
+    typing_vars E xs (imgs fs) shR->
+    typing E (ENew C xs) ((Cl C),shR,(ENew C esAn))
 | t_blk : forall E E' xs ann dtys es shRs esAn e t shR eAn,
     (NoDup xs) ->
     (E'=(toEnv xs dtys)) ->
@@ -300,15 +290,15 @@ Inductive typing : forall E, exp -> (ty * (shRel (dom E)) * exp) -> Prop :=
            )
          )
 
-with par_typing : forall E : env, 
-                  (list exp) -> (list ty) -> (shRel (dom E) * (list exp)) -> Prop :=
+with typing_vars : forall E : env, 
+                  (list var) -> (list ty) -> (shRel (dom E)) -> Prop :=
    | wt_nil : forall E,
       ok E ->
-      par_typing E nil nil ((id_shRel (dom E)),nil)
-   | wt_cons : forall E es e ts t shR shRs esAn eAn,
-      par_typing E es ts (shRs,esAn)->
-      typing E e (t,shR,eAn) ->
-      par_typing E (e::es) (t::ts) ((add_shr shR shRs),(eAn::esAn)) 
+      typing_vars E nil nil (id_shRel (dom E))
+   | wt_cons : forall E xs x ts t shR shRs eAn,
+      typing_vars E xs ts shRs->
+      typing E (EVar x) (t,shR,eAn) ->
+      typing_vars E (x::xs) (t::ts) (add_shr shR shRs) 
 
 with dec_typing : forall E, 
                   (list var) -> (list decTy) -> (list exp) -> (shRel (dom E) * (list exp)) -> Prop :=

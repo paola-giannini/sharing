@@ -1,11 +1,17 @@
 -R . FJSH
 ./AdditionalTactics.v
 ./Atom.v
-./EqRF.v
-./EqRFE.v
-./Evaluation.v
+./Connected.v
+./DecidableEquivalences.v
+./DPF.v
+./EqR.v
+./EqRMeet.v
+./EvaluationSimpl.v
 ./FinVectorMisc.v
-./TypedLanguage.v
 ./Metatheory.v
 ./NatMisc.v
+./NotationsMisc.v
 ./SharingRelation.v
+./SigmaMisc.v
+./TypedLanguageSimpl.v
+

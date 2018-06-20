@@ -1,9 +1,14 @@
-Require Import Utf8.
 Require Import OrdersTac.
 Require Import PeanoNat.
+From Equations Require Import Equations.
+Set Equations Transparent.
+Unset Equations WithK.
+
+Equations uipNat {n : nat} (eq : n = n) : eq = eq_refl :=
+uipNat eq_refl := eq_refl.
 
 (* PeanoNat.Nat.add_0_r, PeanoNat.Nat.add_succ_r, ...
-   are opaque, so we have to reprove them here       *)
+   are opaque, so we have to reprove them       *)
 
 Definition addSuccL (n m : nat) : S n + m = S (n + m).
 Proof.
@@ -25,33 +30,33 @@ Proof.
 Defined.
 
 Definition leTrans (n m p : nat) 
-         (nLem : n ≤ m) (mLep : m ≤ p) : n ≤ p.
+         (nLem : n <= m) (mLep : m <= p) : n <= p.
 Proof.
   induction mLep.
   + exact nLem.
   + exact (le_S _ _ IHmLep).
 Defined.
 
-Fixpoint subSuccL (n m : nat) (nLem : n ≤ m) : 
+Fixpoint subSuccL (n m : nat) (nLem : n <= m) : 
                   S m - n = S (m - n).
 Proof.
   induction n.
   - induction m; reflexivity.
-  - assert (∀ l k : nat, (S l) - (S k) = l - k) 
+  - assert (forall l k : nat, (S l) - (S k) = l - k) 
     as dropS by reflexivity.
     induction nLem.
     + rewrite (dropS (S n) n).
       rewrite (dropS n n).
       rewrite (subSuccL _ _ (le_n n)).
       reflexivity.
-    + assert (n ≤ m) as nLem'.
+    + assert (n <= m) as nLem'.
       * apply (leTrans _ _ _ (le_S _ _ (le_n n)) nLem).
       * rewrite (dropS (S m) n).
         rewrite (dropS m n).
         exact (subSuccL _ _ nLem').
 Defined.
 
-Definition lePlusL (n m : nat) : m ≤ n + m.
+Definition lePlusL (n m : nat) : m <= n + m.
 Proof.
   induction n.
   + exact (le_n m).
@@ -59,7 +64,7 @@ Proof.
     exact (le_S _ _ (le_n (n + m))).
 Defined.
 
-Definition leNS {n m : nat} : n ≤ m → S n ≤ S m.
+Definition leNS {n m : nat} : n <= m -> S n <= S m.
 Proof.
   intro nLEm.
   induction nLEm.
@@ -68,7 +73,7 @@ Proof.
     exact (le_S _ _ (le_n (S m))).
 Defined.
 
-Definition le0n (n : nat) : 0 ≤ n.
+Definition le0n (n : nat) : 0 <= n.
 Proof.
   induction n.
   - exact (le_n 0).
@@ -90,7 +95,7 @@ Proof.
       rewrite <- eq. trivial.
 Defined.
 
-Definition leDicho (n m : nat) : (n ≤ m) + (m < n).
+Definition leDicho (n m : nat) : (n <= m) + (m < n).
 Proof.
   destruct (leCases n m) as [[c eq]|[c eq]].
   - left. rewrite <- eq. exact (lePlusL c n).
@@ -128,7 +133,7 @@ Proof.
     apply leNS. exact (lePlusL c m).
 Defined.
 
-Definition eqAddS {n m : nat} : (S n) = (S m) → n = m.
+Definition eqAddS {n m : nat} : (S n) = (S m) -> n = m.
 Proof.
   inversion 1. trivial.
 Defined.
@@ -140,23 +145,23 @@ Proof.
   - rewrite (addSuccR). rewrite <- IHn. trivial.
 Defined.
 
-Definition nleSuccDiagL: ∀ n : nat, ¬ S n ≤ n.
+Definition nleSuccDiagL: forall n : nat, ~ S n <= n.
 Proof.
   induction n; intro; inversion H; apply IHn.
   - rewrite H1; exact (le_n n).
   - exact (leTrans _ _ _ (le_S _ _ (le_n (S n))) H1).
 Defined.
 
-Definition leSN {n m : nat} : S n ≤ S m → n ≤ m.
+Definition leSN {n m : nat} : S n <= S m -> n <= m.
 Proof.
   destruct (leCases (S n) (S m)) as [[d eq]|[d eq]]; destruct d.
   - compute in eq.
     rewrite (eqAddS eq). intro. exact (le_n m).
   - intro SnLeSm. inversion eq. rewrite (addSuccR d n).
     rewrite (addComm d n).
-    assert (n + d ≤ S (n + d)).
+    assert (n + d <= S (n + d)).
     { exact (le_S _ _ (le_n (n + d))). }
-    assert (n ≤ n + d).
+    assert (n <= n + d).
     { rewrite (addComm n d). exact (lePlusL d n). }
     exact (leTrans _ _ _ H1 H).
   - rewrite (eqAddS eq). intro. exact (le_n m).
@@ -176,12 +181,12 @@ Proof.
     reflexivity.
 Defined.
 
-Definition neqSucc0 (n : nat) : S n ≠ 0.
+Definition neqSucc0 (n : nat) : S n <> 0.
 Proof.
   induction n; intro; discriminate H.
 Defined.
 
-Definition succPred {n : nat} : n ≠ 0 → S (Nat.pred n) = n.
+Definition succPred {n : nat} : n <> 0 -> S (Nat.pred n) = n.
 Proof.
   induction n.
   - intro NE00. apply False_ind. 
@@ -190,9 +195,31 @@ Proof.
   - trivial.
 Defined.
 
-Definition le0eq0 (n : nat) : n ≤ 0 → n = 0.
+Definition le0eq0 (n : nat) : n <= 0 -> n = 0.
 Proof.
   induction n.
   - trivial.
   - inversion 1.
+Defined.
+
+Definition notLt0 (n : nat) : ~ (n < 0).
+Proof. induction n; inversion 1. Defined.
+
+Definition leAntiSymmetric (n m : nat) : n <= m /\ m <= n -> n = m.
+Proof.
+  generalize m.
+  induction n.
+  + intro k.
+    induction k. 
+    * trivial.
+    * intros [_ SLeZ]. inversion SLeZ.
+  + intro k. induction k.
+    * intros [SLeZ _]. inversion SLeZ.
+    * intros [SNLeSK SKLeSN].
+      assert (n <= k /\ k <= n) as NLeKLeN.
+      { split.
+        - exact (leSN SNLeSK).
+        - exact (leSN SKLeSN). }
+      pose (IHn k NLeKLeN) as NEqK.
+      exact (f_equal S NEqK).
 Defined.
